@@ -8,9 +8,8 @@
 #include <stdexcept>
 #include "ConnectionHandler.h"
 #include "Frame.h"
-#include "EventSummary.h" // כולל את מבנה הסיכום ואת הפונקציות הרלוונטיות
+#include "EmergencyEvent.h" // כולל את מבנה הסיכום ואת הפונקציות הרלוונטיות
 #include <event.h>
-
 
 using namespace std;
 
@@ -23,12 +22,15 @@ private:
     int nextReceiptId;
     map<string, int> topicToSubscriptionId;
     map<int, string> receiptCallbacks;
-    mutex mutex;
+    map<string, vector<EmergencyEvent>> eventSummaryMap;
+    mutex eventSummaryMapMutex;
+    mutex topicToSubscriptionIdMutex;
+    mutex receiptCallbacksMutex;
     thread readThread;//from the server
     thread keyboardThread;//from the user 
     bool shouldTerminate;
     bool isRunning;
-    map<string, vector<EventSummary>> eventSummaryMap;
+    
 
 
 public:
@@ -75,7 +77,7 @@ public:
         if (keyboardThread.joinable()) {
             keyboardThread.join();
         }
-
+        topicToSubscriptionId.clear();
         isRunning = false; // עדכון שהלקוח נעצר
         cout << "Client stopped." << endl;
     }
@@ -118,7 +120,11 @@ private:
                 } else if (tokens[0] == "logout") {
                     handleLogout();
                 }else if (tokens[0] == "summary") {
-                    printSummary();
+                    if (tokens.size() != 4) {
+                        cout << "Usage: report <file>" << endl;
+                        continue;
+                    }
+                    createSummary(tokens[1],tokens[2],tokens[3]);
                 } else {
                     cout << "Unknown command" << endl;
                 }
@@ -128,32 +134,74 @@ private:
         }
     }
 
-    void handleLogin(const string& hostPort, const string& username, const string& password) {
-        size_t colonPos = hostPort.find(':');
-        if (colonPos == string::npos) {
-            throw runtime_error("Invalid host:port format");
+    void handleLogin(const std::string& hostPort, const std::string& username, const std::string& password) {
+        if (connected) {
+            std::cerr << "The client is already logged in, log out before trying again." << std::endl;
+            return;
         }
 
-        string host = hostPort.substr(0, colonPos);
+        size_t colonPos = hostPort.find(':');
+        if (colonPos == std::string::npos) {
+            throw std::runtime_error("Invalid host:port format");
+        }
+
+        std::string host = hostPort.substr(0, colonPos);
         int port = stoi(hostPort.substr(colonPos + 1));
 
+        if (!connectionHandler.connect()) {
+            std::cerr << "Could not connect to server" << std::endl;
+            return;
+        }
+
+        // Construct the CONNECT frame
         Frame frame;
         frame.command = "CONNECT";
         frame.headers["accept-version"] = "1.2";
-        frame.headers["host"] = host;
+        frame.headers["host"] = "stomp.cs.bgu.ac.il";
         frame.headers["login"] = username;
         frame.headers["passcode"] = password;
 
+        // Send the frame
         sendFrame(frame);
-        this->username = username;
-        connected = true;
-        cout << "Login successful." << endl;
+
+        // Wait for a response from the server
+        Frame response;
+        if (!connectionHandler.getFrame(response)) {
+            std::cerr << "Failed to receive response from server during login" << std::endl;
+            connectionHandler.close();
+            return;
+        }
+
+        // Process the response
+        if (response.command == "CONNECTED") {
+            connected = true;
+            this->username = username;
+            std::cout << "Login successful" << std::endl;
+        } else if (response.command == "ERROR") {
+            std::string errorMessage = response.headers["message"];
+            if (errorMessage == "User already logged in") {
+                std::cerr << "User already logged in." << std::endl;
+            } else if (errorMessage == "Wrong password") {
+                std::cerr << "Wrong password." << std::endl;
+            } else {
+                std::cerr << "Login failed: " << errorMessage << std::endl;
+            }
+            connectionHandler.close();
+        } else {
+            std::cerr << "Unexpected response during login: " << response.command << std::endl;
+            connectionHandler.close();
+        }
     }
 
+
     void handleJoin(const string& topic) {
+        if (!connected){
+            cout << "the user is not logged in, can't join: " << topic << endl;
+            return;
+        }
         if (topicToSubscriptionId.find(topic) != topicToSubscriptionId.end()) {
-        cerr << "Already subscribed to topic: " << topic << endl;
-        return;
+            cerr << "Already subscribed to topic: " << topic << endl;
+            return;
         }
         Frame frame;
         frame.command = "SUBSCRIBE";
@@ -168,10 +216,24 @@ private:
         sendFrame(frame);
         nextSubscriptionId++;
         nextReceiptId++;
-        cout << "Joined topic: " << topic << endl;
+        Frame response;
+        if (!connectionHandler.getFrame(response)) {
+            cerr << "Failed to receive response from server during Exit" << endl;
+            return;
+        }
+        if (isReceiptValid(response, nextReceiptId -1)){
+            cout << "Joined topic: " << topic << endl;        }
+        else{
+            cout << "the frame recived is not correct!" << endl;
+        }
+        
     }
 
     void handleExit(const string& topic) {
+        if (!connected){
+            cout << "the user is not logged in, can't Exit: " << topic << endl;
+            return;
+        }
         if (topicToSubscriptionId.find(topic) == topicToSubscriptionId.end()) {
             cerr << "Not subscribed to topic: " << topic << endl;
             return;
@@ -186,10 +248,24 @@ private:
         receiptCallbacks[nextReceiptId++] = "Exited topic: " + topic;
         sendFrame(frame);
         topicToSubscriptionId.erase(topic);
-        cout << "Exited topic: " << topic << endl;
+        Frame response;
+        if (!connectionHandler.getFrame(response)) {
+            cerr << "Failed to receive response from server during Exit" << endl;
+            return;
+        }
+        if (isReceiptValid(response, nextReceiptId -1)){
+            cout << "Exited topic: " << topic << endl;
+        }
+        else{
+            cout << "the frame recived is not correct!" << endl;
+        }
     }
 
     void handleReport(const std::string& file) {
+        if (!connected){
+            cout << "the user is not logged in, can't report! "  << endl;
+            return;
+        }
         // פריסת הקובץ באמצעות הפונקציה `parseEventsFile`
         names_and_events parsedData;
         try {
@@ -207,11 +283,11 @@ private:
         }
 
         // עיבוד ושליחת כל אירוע
-        for (const auto& event : parsedData.events) {
+        for (auto& event : parsedData.events) {
             try {
                 // הוספת האירוע לערוץ בסיכום
-                addToSummary(channelName, std::to_string(event.get_date_time()), 
-                            event.get_name(), event.get_description());
+                addToSummary(event);
+                event.setEventOwnerUser (this->username);
 
                 // יצירת פריים ושליחתו לשרת
                 Frame frame;
@@ -220,14 +296,14 @@ private:
 
                 std::stringstream body;
                 body << "user: " << username << "\n";
+                body << "city: " << event.get_city() << "\n";
                 body << "event name: " << event.get_name() << "\n";
                 body << "date time: " << event.get_date_time() << "\n";
-                body << "description: " << event.get_description().substr(0, 27) << "\n";
-
+                body << "general information: " << "\n";
                 for (const auto& info : event.get_general_information()) {
-                    body << info.first << ": " << info.second << "\n";
-                }
-
+                    body << "\t" << info.first << ": " << info.second << "\n";
+                }       
+                body << "description: " << event.get_description() << "\n";
                 frame.body = body.str();
                 sendFrame(frame);
 
@@ -241,13 +317,28 @@ private:
     }
 
     void handleLogout() {
+        if (!connected) {
+            cerr << "Error: Not connected to the server." << endl;
+            return;
+        }
         Frame frame;
         frame.command = "DISCONNECT";
-        frame.headers["receipt"] = "disconnect";
-
+        frame.headers["receipt"] = to_string(nextReceiptId);
+        receiptCallbacks[nextReceiptId++] = "logout: " + username;
         sendFrame(frame);
-        stop();
-        cout << "Logged out successfully." << endl;
+        Frame response;
+        if (!connectionHandler.getFrame(response)) {
+            cerr << "Failed to receive response from server during Exit" << endl;
+            return;
+        }
+        if (isReceiptValid(response, nextReceiptId -1)){
+            stop();
+            cout << "Logged out successfully." << endl; 
+            //-----------מזה לחכות לפקודות נוספות--------
+        }
+        else{
+            cout << "the frame recived is not correct, cant log out" << endl;
+        }
     }
 
     void sendFrame(const Frame& frame) {
@@ -256,25 +347,72 @@ private:
             cerr << "Failed to send frame: " << frame.command << endl;
         }
     }
-    void printSummary() {
-        lock_guard<std::mutex> lock(mutex); // ודא שמשתמשים ב-mutex נכון
-        cout << "Event Summary:\n";
-
-        // מעבר על כל ערוץ במפה
-        for (const auto& [channelName, events] : eventSummaryMap) {
-            cout << "Channel: " << channelName << "\n"; // הצגת שם הערוץ
-
-            // מעבר על כל האירועים בערוץ
-            for (const auto& event : events) {
-                cout << "  " << event.getDateTime() << " | " 
-                    << event.getEventName() << " | " 
-                    << event.getDescription() << "\n";
-            }
-            cout << endl; // ריווח בין ערוצים
+    void createSummary(const string& channel_name, const string& user, const string& file) {
+        if (!connected) {
+            cerr << "Error: Not connected to the server." << endl;
+            return;
         }
+        lock_guard<std::mutex> lock(eventSummaryMapMutex); // מנעול לוודא גישה בטוחה למפה
+        ofstream outFile(file, ios::trunc); // פתיחת קובץ חדש (trunc = למחוק תוכן קודם אם קיים)
+        if (!outFile.is_open()) {
+            cerr << "Error: Failed to create or open file: " << file << endl;
+            return;
+        }
+        // סטטיסטיקות
+        int i = 1;
+        int active = 0;
+        int forcesArrival = 0;
+        vector<EmergencyEvent> channelEvents = eventSummaryMap[channel_name];
+        
+        // צבירת תוכן האירועים במשתנה צדדי
+        stringstream eventDetails;
+
+        for (auto& event : channelEvents) {
+            if (event.getEventOwnerUser() == user) {
+                eventDetails << "Report_" << i << "\n";
+                eventDetails << "\tcity: " << event.get_city() << "\n";
+                eventDetails << "\tdate time: " << event.getFormatedDateTime() << "\n";
+                eventDetails << "\tevent name: " << event.get_name() << "\n";
+
+                string description = event.get_description();
+                if (description.length() > 30) {
+                    description = description.substr(0, 27) + "...";
+                }
+                eventDetails << "\tsummary: " << description << "\n";
+                eventDetails << endl;
+
+                if (event.getActive()) { active++; }
+                if (event.getForcesArrival()) { forcesArrival++; }
+                i++;
+            }
+        }
+        // כתיבת סטטיסטיקות בתחילת הקובץ
+        outFile << "Channel " << channel_name << "\n";
+        outFile << "Stats:\n";
+        outFile << "Total: " << i - 1 << "\n";
+        outFile << "active: " << active << "\n";
+        outFile << "forces arrival at scene: " << forcesArrival << "\n";
+        outFile << "\n"; 
+        outFile << "Event Reports: " << "\n"; 
+        // הוספת פרטי האירועים לסוף הקובץ
+        outFile << eventDetails.str();
+        outFile.close(); // סגירת הקובץ
+        cout << "Summary written to file: " << file << endl;
     }
+    bool isReceiptValid(const Frame& frame, int receiptId) {
+        // בדיקה אם הפקודה בפריים היא "RECEIPT"
+        if (frame.command != "RECEIPT") {
+            return false;
+        }
 
+        // בדיקה אם ה-header "receipt-id" תואם ל-ID שציפינו לו
+        auto it = frame.headers.find("receipt-id");
+        if (it != frame.headers.end() && it->second == std::to_string(receiptId)) {
+            return true;
+        }
 
+        return false;
+    }
 
 
     void readLoop() {
@@ -284,7 +422,6 @@ private:
                 cerr << "Connection closed by server." << endl;
                 break;
             }
-
             Frame frame = Frame::parse(message);
             handleFrame(frame);
         }

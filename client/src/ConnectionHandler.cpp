@@ -92,6 +92,23 @@ bool ConnectionHandler::getFrameAscii(std::string &frame, char delimiter) {
 	return true;
 }
 
+bool ConnectionHandler::getFrame(Frame &frame) {
+    std::string rawFrame;
+    if (!getFrameAscii(rawFrame, '\0')) {
+        return false; // כישלון בקריאה מהסוקט
+    }
+
+    try {
+        frame = Frame::parse(rawFrame); // המרת מחרוזת גולמית לאובייקט Frame
+    } catch (std::exception &e) {
+        std::cerr << "Frame parsing failed (Error: " << e.what() << ')' << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+
 bool ConnectionHandler::sendFrameAscii(const std::string &frame, char delimiter) {
 	bool result = sendBytes(frame.c_str(), frame.length());
 	if (!result) return false;

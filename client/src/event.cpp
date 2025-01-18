@@ -19,6 +19,17 @@ Event::Event(std::string channel_name, std::string city, std::string name, int d
       date_time(date_time), description(description), general_information(general_information), eventOwnerUser("")
 {
 }
+//copy constactor
+Event::Event(const Event& e)
+    : channel_name(e.channel_name), 
+      city(e.city), 
+      name(e.name), 
+      date_time(e.date_time), 
+      description(e.description), 
+      general_information(e.general_information), 
+      eventOwnerUser(e.eventOwnerUser) {
+}
+
 
 Event::~Event()
 {
