@@ -10,6 +10,15 @@ public class UserStomp<T> {
    private ConcurrentHashMap<Integer, String> ChannelSubscriptions;
    private boolean isConnected;
 
+   public UserStomp(int connectionId, String username, String password, ConnectionHandler<T> connectionHandler) {
+      this.connectionId = connectionId;
+      this.username = username;
+      this.password = password;
+      this.connectionHandler = connectionHandler;
+      this.isConnected = true;
+      this.ChannelSubscriptions = new ConcurrentHashMap();
+   }
+
     //Geters
     public int getConnectionId() {
        return connectionId;

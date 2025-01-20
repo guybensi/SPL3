@@ -5,6 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 
+
 public class ConnectionsImpl<T> implements Connections<T> {
 
     private final ConcurrentMap<Integer, ConnectionHandler<T>> activeConnectionHandlers; // Map of connectionId -> ConnectionHandler
@@ -15,6 +16,10 @@ public class ConnectionsImpl<T> implements Connections<T> {
         activeConnectionHandlers = new ConcurrentHashMap<>();
         channels = new ConcurrentHashMap<>();
         users = new ConcurrentHashMap<>();
+    }
+    // Helper method to add a connection
+    public void addConnection(int connectionId, ConnectionHandler<T> handler) {
+        activeConnectionHandlers.put(connectionId, handler);
     }
 
     @Override
@@ -54,18 +59,36 @@ public class ConnectionsImpl<T> implements Connections<T> {
         activeConnectionHandlers.remove(connectionId);
     }
     //////////////////////////////////////////////////////////////////
-    // Helper method to add a connection
-    public void addConnection(int connectionId, ConnectionHandler<T> handler) {
-        activeConnectionHandlers.put(connectionId, handler);
+    
+    //for connect frame
+    public boolean checkPasswordToUser(String userName, String Password) {
+        return !this.users.containsKey(userName) || ((UserStomp)this.users.get(userName)).getPassword().equals(Password);
     }
+    public boolean checkIfUserLogedIn(String userName, String Password) {
+        return this.users.containsKey(userName) && ((UserStomp)this.users.get(userName)).isConnected();
+    }
+    public void login(int connectionId, String userName, String password) {
+        UserStomp user;
+        ConnectionHandler<T> newHandler = (ConnectionHandler)this.activeConnectionHandlers.get(connectionId);
+        if (this.users.containsKey(userName)) {
+            user = (UserStomp)this.users.get(userName);
+            user.setIsConnected(true);
+            user.setConnectionId(connectionId);
+            user.setConnectionHandler(newHandler);
+        } else {
+           user = new UserStomp (connectionId, userName, password, (ConnectionHandler)this.connectionHandlers.get(connectionId));
+           users.put(userName, user);        
+        }
+        newHandler.setUser(user);
+     }
 
-    // Helper method to subscribe a connection to a channel
+    //for subscribe frame
     public void subscribe(String channel, int connectionId) {
         channels.putIfAbsent(channel, new CopyOnWriteArraySet<>());
         channels.get(channel).add(connectionId);
     }
 
-    // Helper method to unsubscribe a connection from a channel
+    //for unsubscribe frame
     public void unsubscribe(String channel, int connectionId) {
         CopyOnWriteArraySet<Integer> subscribers = channels.get(channel);
         if (subscribers != null) {

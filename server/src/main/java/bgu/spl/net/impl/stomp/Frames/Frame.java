@@ -7,15 +7,15 @@ import bgu.spl.net.srv.Connections;
 
 public abstract  class Frame {
     protected final int connectionId;
-    private ConcurrentHashMap<String, String> headers; // Key-value pairs for metadata
-    private String body; // The message content
+    protected final ConcurrentHashMap<String, String> headers; // Key-value pairs for metadata
+    protected final String body; // The message content
     protected final Connections<String> connections;
     
 
     // Constructor
-    public Frame(int connectionId, ConcurrentHashMap <String, String> headers, String body, Connections<String> connections) {
+    public Frame(int connectionId, Map <String, String> headers, String body, Connections<String> connections) {
         this.connectionId = connectionId;
-        this.headers = headers;
+        this.headers = new ConcurrentHashMap(headers);
         this.body = body;
         this.connections = connections ;
     }
