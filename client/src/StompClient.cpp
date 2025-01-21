@@ -11,6 +11,7 @@
 #include "Frame.h"
 #include "EmergencyEvent.h" // כולל את מבנה הסיכום ואת הפונקציות הרלוונטיות
 #include <event.h>
+#include <queue>
 
 using namespace std;
 
@@ -23,7 +24,7 @@ private:
     int nextReceiptId;
     map<string, int> topicToSubscriptionId;
     map<int, string> receiptCallbacks;
-    map<string, vector<EmergencyEvent>> eventSummaryMap;
+    map<string, map<string, vector<EmergencyEvent>>> eventSummaryMap;
     mutex eventSummaryMapMutex;
     mutex topicToSubscriptionIdMutex;
     mutex receiptCallbacksMutex;
@@ -31,6 +32,11 @@ private:
     thread keyboardThread;//from the user 
     bool shouldTerminate;
     bool isRunning;
+    queue<Frame> sendQueue; 
+    queue<Frame> receiveQueue; 
+    mutex receiveMutex;
+    mutex sendMutex; // Mutex for thread-safe access to the queue
+    condition_variable queueCV; // Condition variable for synchronization
     
 
 
@@ -287,7 +293,7 @@ private:
         for (auto& event : parsedData.events) {
             try {
                 // הוספת האירוע לערוץ בסיכום
-                addToSummary(event);
+                addToSummary(event, this->username);
                 event.setEventOwnerUser (this->username);
 
                 // יצירת פריים ושליחתו לשרת
@@ -354,6 +360,15 @@ private:
             return;
         }
         lock_guard<std::mutex> lock(eventSummaryMapMutex); // מנעול לוודא גישה בטוחה למפה
+        if (eventSummaryMap.find(channel_name) == eventSummaryMap.end()) {
+            cerr << "Error: Channel " << channel_name << " not found." << endl;
+            return;
+        }
+
+        if (eventSummaryMap[channel_name].find(user) == eventSummaryMap[channel_name].end()) {
+            cerr << "Error: User " << user << " not found in channel " << channel_name << "." << endl;
+            return;
+        }
         ofstream outFile(file, ios::trunc); // פתיחת קובץ חדש (trunc = למחוק תוכן קודם אם קיים)
         if (!outFile.is_open()) {
             cerr << "Error: Failed to create or open file: " << file << endl;
@@ -363,29 +378,25 @@ private:
         int i = 1;
         int active = 0;
         int forcesArrival = 0;
-        vector<EmergencyEvent> channelEvents = eventSummaryMap[channel_name];
+        const vector<EmergencyEvent>& userEvents = eventSummaryMap[channel_name][user];
         
         // צבירת תוכן האירועים במשתנה צדדי
         stringstream eventDetails;
 
-        for (auto& event : channelEvents) {
-            if (event.getEventOwnerUser() == user) {
-                eventDetails << "Report_" << i << "\n";
-                eventDetails << "\tcity: " << event.get_city() << "\n";
-                eventDetails << "\tdate time: " << event.getFormatedDateTime() << "\n";
-                eventDetails << "\tevent name: " << event.get_name() << "\n";
-
-                string description = event.get_description();
-                if (description.length() > 30) {
-                    description = description.substr(0, 27) + "...";
-                }
-                eventDetails << "\tsummary: " << description << "\n";
-                eventDetails << endl;
-
-                if (event.getActive()) { active++; }
-                if (event.getForcesArrival()) { forcesArrival++; }
-                i++;
+        for (auto& event : userEvents) {
+            eventDetails << "Report_" << i << "\n";
+            eventDetails << "\tcity: " << event.get_city() << "\n";
+            eventDetails << "\tdate time: " << event.getFormatedDateTime() << "\n";
+            eventDetails << "\tevent name: " << event.get_name() << "\n";
+            string description = event.get_description();
+            if (description.length() > 30) {
+                description = description.substr(0, 27) + "...";
             }
+            eventDetails << "\tsummary: " << description << "\n";
+            eventDetails << endl;
+            if (event.getActive()) { active++; }
+            if (event.getForcesArrival()) { forcesArrival++; }
+            i++;
         }
         // כתיבת סטטיסטיקות בתחילת הקובץ
         outFile << "Channel " << channel_name << "\n";
@@ -418,13 +429,43 @@ private:
 
     void readLoop() {
         while (!shouldTerminate) {
-            string message;
-            if (!connectionHandler.getFrameAscii(message, '\0')) {
-                cerr << "Connection closed by server." << endl;
-                break;
+            Frame frameToSend;
+            {
+                std::unique_lock<std::mutex> lock(sendMutex);
+                queueCV.wait(lock, [this]() { return !sendQueue.empty() || !readQueue.empty() || shouldTerminate; });
+
+                if (shouldTerminate) break;
+
+                if (!sendQueue.empty()) {
+                    frameToSend = sendQueue.front();
+                    sendQueue.pop();
+                }
             }
-            Frame frame = Frame::parse(message);
-            handleFrame(frame);
+            // אם יש הודעה לשליחה, שולחים אותה וממתינים לתשובה
+            if (!frameToSend.command.empty()) {
+                sendFrame(frameToSend);
+
+                // קריאת תשובה מהשרת
+                Frame response;
+                if (connectionHandler.getFrame(response)) {
+                    handleFrame(response); // טיפול בתגובה שהתקבלה
+                } else {
+                    std::cerr << "Failed to receive response from server." << std::endl;
+                }
+            }
+            Frame receivedFrame;
+            {
+                std::lock_guard<std::mutex> lock(receiveMutex);
+                if (!receiveQueue.empty()) {
+                    receivedFrame = receiveQueue.front();
+                    receiveQueue.pop();
+                }
+            }
+
+            if (!receivedFrame.command.empty()) {
+                handleFrame(receivedFrame); // טיפול בהודעה שהתקבלה
+            }
+            
         }
     }
 
@@ -440,7 +481,7 @@ private:
         } else if (frame.command == "MESSAGE") {
             cout << "Message: " << frame.body << endl;
         } else if (frame.command == "ERROR") {
-            cerr << "Error from server: " << frame.headers["message"] << endl;
+            cerr << "Error from server: " <<  endl;
         } else {
             cerr << "Unknown frame received: " << frame.command << endl;
         }

@@ -26,11 +26,11 @@ public:
 };
 
 // מפת סיכומים
-extern map<string, vector<EmergencyEvent>> eventSummaryMap;
+extern map<string, map<string, vector<EmergencyEvent>>> eventSummaryMap;
 extern map<string, mutex> channelMutexes;
 
 // פונקציות נלוות
-void addToSummary(const Event& e);
+void addToSummary(const Event& e, const string& username);
 void ensureChannelMutexExists(const string& channelName);
 string formatToDateTime(const string& rawDateTime);
 

@@ -12,7 +12,7 @@ using namespace std;
 
 
 // מפת הסיכומים לפי ערוצים
-map<string, vector<EmergencyEvent>> eventSummaryMap;
+map<string, map<string, vector<EmergencyEvent>>> eventSummaryMap;
 
 EmergencyEvent::EmergencyEvent(const Event& e) : Event(e) {
     this->formatDateTime = formatToDateTime(to_string(e.get_date_time()));
@@ -31,22 +31,24 @@ bool EmergencyEvent::operator<(const EmergencyEvent& other) const {
 }
 
 // פונקציה להוספת אירוע לערוץ בסיכום
-void addToSummary(const Event& e) {
+void addToSummary(const Event& e, const string& username) {
     // וודא שלערוץ יש מנעול
     ensureChannelMutexExists(e.get_channel_name());
 
     // נעילת המנעול של הערוץ המסוים
-    std::lock_guard<std::mutex> lock(channelMutexes[e.get_channel_name()]); 
+    lock_guard<mutex> lock(channelMutexes[e.get_channel_name()]);
 
     // יצירת האירוע
     EmergencyEvent eventSummary(e);
 
-    // הוספת האירוע לערוץ המתאים במפה
-    eventSummaryMap[e.get_channel_name()].push_back(eventSummary);
+    // הוספת האירוע לערוץ ולמשתמש המתאים
+    eventSummaryMap[e.get_channel_name()][username].push_back(eventSummary);
 
-    // מיון האירועים בערוץ
-    std::sort(eventSummaryMap[eventSummary.get_channel_name()].begin(), eventSummaryMap[eventSummary.get_channel_name()].end());
+    // מיון האירועים של המשתמש בתוך הערוץ
+    sort(eventSummaryMap[e.get_channel_name()][username].begin(),
+         eventSummaryMap[e.get_channel_name()][username].end());
 }
+
 
 void ensureChannelMutexExists(const std::string& channelName) {
     static std::mutex mutexForMutexes; // מנעול להגנה על map המנעולים
