@@ -12,7 +12,7 @@ using namespace std;
 
 
 // מפת הסיכומים לפי ערוצים
-std::map<std::string, std::vector<EmergencyEvent>> eventSummaryMap;
+map<string, vector<EmergencyEvent>> eventSummaryMap;
 
 EmergencyEvent::EmergencyEvent(const Event& e) : Event(e) {
     this->formatDateTime = formatToDateTime(to_string(e.get_date_time()));
@@ -104,7 +104,7 @@ const std::string& EmergencyEvent::getFormatedDateTime() const {
     return this->formatDateTime; 
 }
 
-const bool EmergencyEvent:: getActive() {return this->active;}
-const bool EmergencyEvent:: getForcesArrival(){return this->forcesArrival;}
+const bool EmergencyEvent:: getActive() const {return this->active;}
+const bool EmergencyEvent:: getForcesArrival() const {return this->forcesArrival;}
 
 

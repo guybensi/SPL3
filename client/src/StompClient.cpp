@@ -1,9 +1,4 @@
-<<<<<<< HEAD
-int main(int argc, char *argv[]) {
-	// TODO: implement the STOMP client
-	return 0;
-}
-=======
+
 #include <iostream>
 #include <thread>
 #include <mutex>
@@ -476,4 +471,4 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
->>>>>>> 633c901ff3e0fc8d4aca55d785af51a308c40de0
+
