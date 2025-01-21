@@ -6,44 +6,32 @@
 #include <map>
 #include <mutex>
 #include "event.h"
-
+using namespace std;
 
 class EmergencyEvent : public Event {
-
 private:
-
-    std::string formatDateTime;    // תאריך ושעה
+    string formatDateTime;
     bool active;
     bool forcesArrival;
 
 public:
-    // בנאי
     EmergencyEvent(const Event& e);
-
-    // השוואה בין אירועים לצורך מיון
     bool operator<(const EmergencyEvent& other) const;
-
-    bool isFieldTrue(const std::string& fieldName) const;
+    bool isFieldTrue(const string& fieldName) const;
 
     // פונקציות גישה
-    const std::string& getFormatedDateTime() const;
-     
-    const bool getActive();
-    const bool getForcesArrival();
-    
+    const string& getFormatedDateTime() const;
+    const bool getActive() const;
+    const bool getForcesArrival() const;
 };
 
-// מפת הסיכומים לפי ערוצים
-extern std::map<std::string, std::vector<EmergencyEvent>> eventSummaryMap;
-std::map<std::string, std::mutex> channelMutexes;
+// מפת סיכומים
+extern map<string, vector<EmergencyEvent>> eventSummaryMap;
+extern map<string, mutex> channelMutexes;
 
-
-// פונקציה להוספת אירוע לערוץ בסיכום
-void addToSummary(Event e);
-
-// פונקציה להמרת תאריך לפורמט הנדרש
-std::string formatDateTime(const std::string& rawDateTime);
-
-
+// פונקציות נלוות
+void addToSummary(const Event& e);
+void ensureChannelMutexExists(const string& channelName);
+string formatToDateTime(const string& rawDateTime);
 
 #endif // EMERGENCYEVENT_H

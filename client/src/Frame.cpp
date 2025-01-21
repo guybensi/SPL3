@@ -2,32 +2,33 @@
 #include <sstream>
 #include <stdexcept>
 
-// מחלקת Frame - מימוש פונקציות מחלקה
+// שימוש ב-using namespace std כדי לפשט את הקוד
+using namespace std;
 
-Frame Frame::parse(const std::string& rawFrame) {
+Frame Frame::parse(const string& rawFrame) {
     Frame frame;
-    std::istringstream stream(rawFrame);
+    istringstream stream(rawFrame);
 
     // Parse command
-    if (!std::getline(stream, frame.command) || frame.command.empty()) {
-        throw std::runtime_error("Invalid frame: missing command");
+    if (!getline(stream, frame.command) || frame.command.empty()) {
+        throw runtime_error("Invalid frame: missing command");
     }
 
     // Parse headers
-    std::string line;
-    while (std::getline(stream, line) && !line.empty()) {
+    string line;
+    while (getline(stream, line) && !line.empty()) {
         size_t colonPos = line.find(':');
-        if (colonPos == std::string::npos) {
-            throw std::runtime_error("Invalid frame: malformed header");
+        if (colonPos == string::npos) {
+            throw runtime_error("Invalid frame: malformed header");
         }
-        std::string key = line.substr(0, colonPos);
-        std::string value = line.substr(colonPos + 1);
+        string key = line.substr(0, colonPos);
+        string value = line.substr(colonPos + 1);
         frame.headers[key] = value;
     }
 
     // Parse body
-    std::ostringstream bodyStream;
-    while (std::getline(stream, line)) {
+    ostringstream bodyStream;
+    while (getline(stream, line)) {
         bodyStream << line << '\n';
     }
     frame.body = bodyStream.str();
@@ -35,8 +36,8 @@ Frame Frame::parse(const std::string& rawFrame) {
     return frame;
 }
 
-std::string Frame::toString() const {
-    std::ostringstream ss;
+string Frame::toString() const {
+    ostringstream ss;
 
     // Append command
     ss << command << "\n";
