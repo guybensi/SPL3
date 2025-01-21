@@ -19,4 +19,7 @@ public interface Connections<T> {
     ConnectionHandler<T> getCHbyconnectionId(int connectionId);
 
     void unsubscribe(int connectionId, int subscriptionId);
+
+    boolean isDestinationLegal(String channel, int connectionId);
+    int getAndIncMsgIdCounter();
 }

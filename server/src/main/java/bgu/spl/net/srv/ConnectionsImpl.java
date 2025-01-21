@@ -4,13 +4,15 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 public class ConnectionsImpl<T> implements Connections<T> {
 
     private final ConcurrentMap<Integer, ConnectionHandler<T>> activeConnectionHandlers; // Map of connectionId -> ConnectionHandler
-    private final ConcurrentMap<String, LinkedList<Integer>> channels; // Map of channel -> Set of connectionIds
+    private final ConcurrentMap<String, LinkedList<Integer>> channels; // Map of channel -> List of connectionIds
     private ConcurrentHashMap<String, UserStomp<T>> users = new ConcurrentHashMap<>(); // Map of users names -> UserStomp
+    private AtomicInteger msgIdCounter = new AtomicInteger();
 
     public ConnectionsImpl() {
         activeConnectionHandlers = new ConcurrentHashMap<>();
@@ -42,23 +44,24 @@ public class ConnectionsImpl<T> implements Connections<T> {
         }
     }
 
+    //////////for connect frame//////////
     @Override
     public void disconnect(int connectionId) {
-        UserStomp<T> userToDisconnect = ((ConnectionHandler<T>)this.activeConnectionHandlers.get(connectionId)).getUser();
-        if (userToDisconnect != null) {
+        UserStomp<T> currUser = ((ConnectionHandler<T>)this.activeConnectionHandlers.get(connectionId)).getUser();
+        if (currUser != null) {
             //unsubscribe the user from all channels
             for (LinkedList<Integer> subscribers : channels.values()) {
                 subscribers.remove(connectionId);
             }
             //Update the user as disconnected
-            userToDisconnect.getChannelSubscriptions().clear();
-            userToDisconnect.setIsConnected(false);
-            userToDisconnect.setConnectionHandler(null);
-            userToDisconnect.setConnectionId(-1);
+            currUser.getChannelSubscriptions().clear();
+            currUser.setIsConnected(false);
+            currUser.setConnectionHandler(null);
+            currUser.setConnectionId(-1);
         }
         activeConnectionHandlers.remove(connectionId);
     }
-    //////////////////////////////////////////////////////////////////
+    //////////////////////////////////////our methods/////////////////////////////////////////////////
     
     //////////for connect frame//////////
     public boolean checkPasswordToUser(String userName, String Password) {
@@ -110,5 +113,15 @@ public class ConnectionsImpl<T> implements Connections<T> {
         ///remove the channel from the user's subscription list
         ChannelsOfUser.remove(subscriptionId);
      }
+
+     //////////for send frame//////////
+     public boolean isDestinationLegal(String channel, int connectionId) {
+        return this.channels.containsKey(channel) && ((ConnectionHandler<T>)this.activeConnectionHandlers.get(connectionId)).getUser().getChannels().contains(channel);
+     }
+     public int getAndIncMsgIdCounter() {
+        return this.msgIdCounter.getAndIncrement();
+    }
+     
+     
 
 }

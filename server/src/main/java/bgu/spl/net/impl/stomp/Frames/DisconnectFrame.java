@@ -18,17 +18,21 @@ public class DisconnectFrame extends Frame{
             //String[] SummaryAndBodyErr = var4.getMessage().split(":", 2);
             //FrameUtil.handleError(this, SummaryAndBodyErr[0], SummaryAndBodyErr[1], this.connections, this.connectionId, (String)this.headers.get("receipt"));
         }
-        if (toDisconnect == true) {
-            Integer id  = Integer.parseInt((String)this.headers.get("id")); 
-            connections.unsubscribe(this.connectionId, id);
-            //if (this.headers.containsKey("receipt")) {
-                //FrameUtil.sendReceiptFrame((String)this.headers.get("receipt"), this.connections, this.connectionId);
+        if (toDisconnect == true) { 
+            //FrameUtil.sendReceiptFrame((String)this.headers.get("receipt"), this.connections, this.connectionId);
+            connections.disconnect(this.connectionId);
         }
-
     }
 
     public String getNameCommand() {
         return "DISCONNECT";
      }
+
+    ////// processפונקציות עזר ל
+    private void checkReceipt() throws IOException {
+        if (!this.headers.containsKey("receipt")) {
+            throw new IOException("DISCONNECT should contain receipt header");
+        }
+    }
     
 }
