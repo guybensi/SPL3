@@ -95,7 +95,7 @@ private:
         while (!shouldTerminate) {
             string line;
             getline(cin, line);
-
+            Frame frame;
             vector<string> tokens = splitString(line, ' ');
             if (tokens.empty()) continue;
 
@@ -105,27 +105,27 @@ private:
                         cout << "Usage: login <host:port> <username> <password>" << endl;
                         continue;
                     }
-                    handleLogin(tokens[1], tokens[2], tokens[3]);
+                    frame = handleLogin(tokens[1], tokens[2], tokens[3]);
                 } else if (tokens[0] == "join") {
                     if (tokens.size() != 2) {
                         cout << "Usage: join <topic>" << endl;
                         continue;
                     }
-                    handleJoin(tokens[1]);
+                    frame = handleJoin(tokens[1]);
                 } else if (tokens[0] == "exit") {
                     if (tokens.size() != 2) {
                         cout << "Usage: exit <topic>" << endl;
                         continue;
                     }
-                    handleExit(tokens[1]);
+                    frame = handleExit(tokens[1]);
                 } else if (tokens[0] == "report") {
                     if (tokens.size() != 2) {
                         cout << "Usage: report <file>" << endl;
                         continue;
                     }
-                    handleReport(tokens[1]);
+                    frame = handleReport(tokens[1]);
                 } else if (tokens[0] == "logout") {
-                    handleLogout();
+                    frame = handleLogout();
                 }else if (tokens[0] == "summary") {
                     if (tokens.size() != 4) {
                         cout << "Usage: report <file>" << endl;
@@ -135,13 +135,19 @@ private:
                 } else {
                     cout << "Unknown command" << endl;
                 }
+                {
+                    std::lock_guard<std::mutex> lock(sendMutex);
+                    sendQueue.push(frame);
+                }
+                queueCV.notify_all(); // לעורר את התרד של השרת
+
             } catch (const exception& e) {
                 cerr << "Error: " << e.what() << endl;
             }
         }
     }
 
-    void handleLogin(const std::string& hostPort, const std::string& username, const std::string& password) {
+    Frame handleLogin(const std::string& hostPort, const std::string& username, const std::string& password) {
         if (connected) {
             std::cerr << "The client is already logged in, log out before trying again." << std::endl;
             return;
@@ -168,40 +174,11 @@ private:
         frame.headers["login"] = username;
         frame.headers["passcode"] = password;
 
-        // Send the frame
-        sendFrame(frame);
-
-        // Wait for a response from the server
-        Frame response;
-        if (!connectionHandler.getFrame(response)) {
-            std::cerr << "Failed to receive response from server during login" << std::endl;
-            connectionHandler.close();
-            return;
-        }
-
-        // Process the response
-        if (response.command == "CONNECTED") {
-            connected = true;
-            this->username = username;
-            std::cout << "Login successful" << std::endl;
-        } else if (response.command == "ERROR") {
-            std::string errorMessage = response.headers["message"];
-            if (errorMessage == "User already logged in") {
-                std::cerr << "User already logged in." << std::endl;
-            } else if (errorMessage == "Wrong password") {
-                std::cerr << "Wrong password." << std::endl;
-            } else {
-                std::cerr << "Login failed: " << errorMessage << std::endl;
-            }
-            connectionHandler.close();
-        } else {
-            std::cerr << "Unexpected response during login: " << response.command << std::endl;
-            connectionHandler.close();
-        }
+        return frame;
     }
 
 
-    void handleJoin(const string& topic) {
+    Frame handleJoin(const string& topic) {
         if (!connected){
             cout << "the user is not logged in, can't join: " << topic << endl;
             return;
@@ -219,15 +196,12 @@ private:
         topicToSubscriptionId[topic] = nextSubscriptionId;
         // עדכון הקלטות לקבלות
         receiptCallbacks[nextReceiptId] = "Joined topic: " + topic;
-        // שליחת פריים
-        sendFrame(frame);
         nextSubscriptionId++;
         nextReceiptId++;
+        return frame;
+        //-------------------------------------------------
         Frame response;
-        if (!connectionHandler.getFrame(response)) {
-            cerr << "Failed to receive response from server during Exit" << endl;
-            return;
-        }
+ 
         if (isReceiptValid(response, nextReceiptId -1)){
             cout << "Joined topic: " << topic << endl;        }
         else{
@@ -236,7 +210,7 @@ private:
         
     }
 
-    void handleExit(const string& topic) {
+    Frame handleExit(const string& topic) {
         if (!connected){
             cout << "the user is not logged in, can't Exit: " << topic << endl;
             return;
@@ -253,8 +227,9 @@ private:
         frame.headers["receipt"] = to_string(nextReceiptId);
 
         receiptCallbacks[nextReceiptId++] = "Exited topic: " + topic;
-        sendFrame(frame);
         topicToSubscriptionId.erase(topic);
+        return frame;
+        //------------------------
         Frame response;
         if (!connectionHandler.getFrame(response)) {
             cerr << "Failed to receive response from server during Exit" << endl;
@@ -268,7 +243,7 @@ private:
         }
     }
 
-    void handleReport(const std::string& file) {
+    Frame handleReport(const std::string& file) {
         if (!connected){
             cout << "the user is not logged in, can't report! "  << endl;
             return;
@@ -312,18 +287,18 @@ private:
                 }       
                 body << "description: " << event.get_description() << "\n";
                 frame.body = body.str();
-                sendFrame(frame);
-
                 std::cout << "Event reported: " << event.get_name() << " to channel: " << channelName << std::endl;
+                std::cout << "Report summary updated from file: " << file << std::endl;
+                return frame;
+
             } catch (const std::exception& e) {
                 std::cerr << "Error processing event: " << e.what() << std::endl;
             }
         }
 
-        std::cout << "Report summary updated from file: " << file << std::endl;
     }
 
-    void handleLogout() {
+    Frame handleLogout() {
         if (!connected) {
             cerr << "Error: Not connected to the server." << endl;
             return;
@@ -332,7 +307,8 @@ private:
         frame.command = "DISCONNECT";
         frame.headers["receipt"] = to_string(nextReceiptId);
         receiptCallbacks[nextReceiptId++] = "logout: " + username;
-        sendFrame(frame);
+        return frame;
+        //------------------
         Frame response;
         if (!connectionHandler.getFrame(response)) {
             cerr << "Failed to receive response from server during Exit" << endl;
@@ -351,6 +327,7 @@ private:
     void sendFrame(const Frame& frame) {
         string frameStr = frame.toString();
         if (!connectionHandler.sendFrameAscii(frameStr, '\0')) {
+            connectionHandler.close();
             cerr << "Failed to send frame: " << frame.command << endl;
         }
     }
@@ -456,34 +433,42 @@ private:
             Frame receivedFrame;
             {
                 std::lock_guard<std::mutex> lock(receiveMutex);
-                if (!receiveQueue.empty()) {
+                while (!receiveQueue.empty()) {
                     receivedFrame = receiveQueue.front();
                     receiveQueue.pop();
+                    handleFrame(receivedFrame);
                 }
-            }
-
-            if (!receivedFrame.command.empty()) {
-                handleFrame(receivedFrame); // טיפול בהודעה שהתקבלה
             }
             
         }
     }
 
-    void handleFrame(const Frame& frame) {
-        if (frame.command == "CONNECTED") {
-            cout << "Server response: CONNECTED" << endl;
-        } else if (frame.command == "RECEIPT") {
-            int receiptId = stoi(frame.headers.at("receipt-id"));
+    void handleFrame(const Frame& response) {
+        if (response.command == "CONNECTED") {
+            connected = true;
+            this->username = username;
+            std::cout << "Login successful" << std::endl;
+        } else if (response.command == "RECEIPT") {
+            int receiptId = stoi(response.headers.at("receipt-id"));
             if (receiptCallbacks.find(receiptId) != receiptCallbacks.end()) {
                 cout << receiptCallbacks[receiptId] << endl;
                 receiptCallbacks.erase(receiptId);
             }
-        } else if (frame.command == "MESSAGE") {
-            cout << "Message: " << frame.body << endl;
-        } else if (frame.command == "ERROR") {
-            cerr << "Error from server: " <<  endl;
+        } else if (response.command == "MESSAGE") {
+            cout << "Message: " << response.body << endl;
+        } else if (response.command == "ERROR") {
+            std::string errorMessage = response.headers["message"];
+            if (errorMessage == "User already logged in") {
+                std::cerr << "User already logged in." << std::endl;
+            } else if (errorMessage == "Wrong password") {
+                std::cerr << "Wrong password." << std::endl;
+            } else {
+                std::cerr << "Login failed: " << errorMessage << std::endl;
+            }
+            connectionHandler.close();
         } else {
-            cerr << "Unknown frame received: " << frame.command << endl;
+            std::cerr << "Unexpected Frame recived " << response.command << std::endl;
+            connectionHandler.close();
         }
     }
 
