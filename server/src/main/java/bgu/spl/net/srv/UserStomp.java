@@ -16,7 +16,7 @@ public class UserStomp<T> {
       this.password = password;
       this.connectionHandler = connectionHandler;
       this.isConnected = true;
-      this.ChannelSubscriptions = new ConcurrentHashMap();
+      this.ChannelSubscriptions = new ConcurrentHashMap<>();
    }
 
     //Geters

@@ -1,16 +1,16 @@
 package bgu.spl.net.srv;
 
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CopyOnWriteArraySet;
 
 
 public class ConnectionsImpl<T> implements Connections<T> {
 
     private final ConcurrentMap<Integer, ConnectionHandler<T>> activeConnectionHandlers; // Map of connectionId -> ConnectionHandler
-    private final ConcurrentMap<String, CopyOnWriteArraySet<Integer>> channels; // Map of channel -> Set of connectionIds
-    private ConcurrentHashMap<String, UserStomp<T>> users = new ConcurrentHashMap(); // Map of users names -> UserStomp
+    private final ConcurrentMap<String, LinkedList<Integer>> channels; // Map of channel -> Set of connectionIds
+    private ConcurrentHashMap<String, UserStomp<T>> users = new ConcurrentHashMap<>(); // Map of users names -> UserStomp
 
     public ConnectionsImpl() {
         activeConnectionHandlers = new ConcurrentHashMap<>();
@@ -34,7 +34,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     @Override
     public void send(String channel, T msg) {
-        CopyOnWriteArraySet<Integer> subscribers = channels.get(channel);
+        LinkedList<Integer> subscribers = channels.get(channel);
         if (subscribers != null) {
             for (int connectionId : subscribers) {
                 send(connectionId, msg); // Send the message to each subscriber
@@ -44,10 +44,10 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     @Override
     public void disconnect(int connectionId) {
-        UserStomp<T> userToDisconnect = ((ConnectionHandler)this.activeConnectionHandlers.get(connectionId)).getUser();
+        UserStomp<T> userToDisconnect = ((ConnectionHandler<T>)this.activeConnectionHandlers.get(connectionId)).getUser();
         if (userToDisconnect != null) {
             //unsubscribe the user from all channels
-            for (CopyOnWriteArraySet<Integer> subscribers : channels.values()) {
+            for (LinkedList<Integer> subscribers : channels.values()) {
                 subscribers.remove(connectionId);
             }
             //Update the user as disconnected
@@ -60,39 +60,55 @@ public class ConnectionsImpl<T> implements Connections<T> {
     }
     //////////////////////////////////////////////////////////////////
     
-    //for connect frame
+    //////////for connect frame//////////
     public boolean checkPasswordToUser(String userName, String Password) {
-        return !this.users.containsKey(userName) || ((UserStomp)this.users.get(userName)).getPassword().equals(Password);
+        return !this.users.containsKey(userName) || ((UserStomp<T>)this.users.get(userName)).getPassword().equals(Password);
     }
     public boolean checkIfUserLogedIn(String userName, String Password) {
-        return this.users.containsKey(userName) && ((UserStomp)this.users.get(userName)).isConnected();
+        return this.users.containsKey(userName) && ((UserStomp<T>)this.users.get(userName)).isConnected();
     }
     public void login(int connectionId, String userName, String password) {
-        UserStomp user;
-        ConnectionHandler<T> newHandler = (ConnectionHandler)this.activeConnectionHandlers.get(connectionId);
+        UserStomp<T> user;
+        ConnectionHandler<T> newHandler = (ConnectionHandler<T>)this.activeConnectionHandlers.get(connectionId);
         if (this.users.containsKey(userName)) {
-            user = (UserStomp)this.users.get(userName);
+            user = (UserStomp<T>)this.users.get(userName);
             user.setIsConnected(true);
             user.setConnectionId(connectionId);
             user.setConnectionHandler(newHandler);
         } else {
-           user = new UserStomp (connectionId, userName, password, (ConnectionHandler)this.connectionHandlers.get(connectionId));
+           user = new UserStomp<T> (connectionId, userName, password, (ConnectionHandler<T>)this.activeConnectionHandlers.get(connectionId));
            users.put(userName, user);        
         }
         newHandler.setUser(user);
      }
 
-    //for subscribe frame
-    public void subscribe(String channel, int connectionId) {
-        channels.putIfAbsent(channel, new CopyOnWriteArraySet<>());
-        channels.get(channel).add(connectionId);
-    }
-
-    //for unsubscribe frame
-    public void unsubscribe(String channel, int connectionId) {
-        CopyOnWriteArraySet<Integer> subscribers = channels.get(channel);
-        if (subscribers != null) {
-            subscribers.remove(connectionId);
+    //////////for subscribe frame//////////
+    public void subscribe(int connectionId, int subscriptionId,String channel ) {
+        //add the subscription to the user's subscription list 
+        ConnectionHandler <T> currHandler = (ConnectionHandler<T>)activeConnectionHandlers.get(connectionId);
+        UserStomp<T> currUser =  (UserStomp<T>)currHandler.getUser() ;
+        Map<Integer, String> ChannelsOfUser = currUser.getChannelSubscriptions();
+        ChannelsOfUser.put(subscriptionId, channel);
+        //add the connectionId to the channel's list
+        if (!this.channels.containsKey(channel)) {
+            this.channels.put(channel, new LinkedList<Integer>());
         }
+        ((LinkedList<Integer>)channels.get(channel)).push(connectionId);
     }
+    public ConnectionHandler<T> getCHbyconnectionId(int connectionId) {
+        return (ConnectionHandler<T>)this.activeConnectionHandlers.get(connectionId);
+     }
+
+    //////////for unsubscribe frame//////////
+    public void unsubscribe(int connectionId, int subscriptionId) {
+        ConnectionHandler <T> currHandler = (ConnectionHandler<T>)activeConnectionHandlers.get(connectionId);
+        UserStomp<T> currUser =  (UserStomp<T>)currHandler.getUser() ;
+        Map<Integer, String> ChannelsOfUser = currUser.getChannelSubscriptions();
+        String channelToRemove = (String)ChannelsOfUser.get(subscriptionId);
+        ///remove the subscription from the channel's list
+        ((LinkedList<Integer>)this.channels.get(channelToRemove)).remove(connectionId);
+        ///remove the channel from the user's subscription list
+        ChannelsOfUser.remove(subscriptionId);
+     }
+
 }

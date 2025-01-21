@@ -120,4 +120,13 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
     public void send(T msg) {
         //IMPLEMENT IF NEEDED
     }
+    @Override
+    public UserStomp<T> getUser(){
+        return null;
+    }
+
+    @Override
+    public void setUser(UserStomp<T> newUser){
+
+    }
 }

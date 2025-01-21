@@ -8,11 +8,27 @@ public class ConnectFrame extends Frame {
    ConnectFrame(int connectionId,Map<String, String> headers,String body, Connections<String> connections) {
       super(connectionId,headers, body,connections);
    }
+
    public void process() {
-
+    boolean toLogin = true;
+    try {
+       this.checkAcceptVersion();
+       this.checkHost();
+       this.checkLogin();
+    } catch (IOException errowMessage) {
+       toLogin = false;
+       ///String[] SummaryAndBodyErr = var4.getMessage().split(":", 2);
+       //FrameUtil.handleError(this, SummaryAndBodyErr[0], SummaryAndBodyErr[1], this.connections, this.connectionId, (String)this.headers.get("receipt"));
+    }
+    if (toLogin == true) {
+        String userName  = (String)this.headers.get("login"); 
+        String passcode = (String)this.headers.get("passcode");
+        connections.login(this.connectionId,userName , passcode);
+        //FrameUtil.sendConnectedFrame((String)this.headers.get("accept-version"), this.connectionId, this.connections);
+        //if (this.headers.containsKey("receipt")) {
+            //FrameUtil.sendReceiptFrame((String)this.headers.get("receipt"), this.connections, this.connectionId);
+        //}
    }
-
-
 
    public String getNameCommand() {
     return "CONNECT";
@@ -39,15 +55,13 @@ public class ConnectFrame extends Frame {
         if (this.headers.containsKey("login") && this.headers.containsKey("passcode")) {
             String userName = (String)this.headers.get("login");
             String password = (String)this.headers.get("passcode");
-           if (connections.isLegalLoginInfo(userName, password)){
-              throw new IOException("Password does not match UserName:User " + (String)this.headers.get("login") + "'s password is diffrent than what you inserted");
-           } else if (connections.isUserLogedIn(userName, password)){
-              throw new IOException("User already logged in:User " + (String)this.headers.get("login") + "is logged in somewhere else");
+           if (connections.checkPasswordToUser(userName, password)){//
+              throw new IOException("The password does not match the username" + userName);
+           } else if (connections.checkIfUserLogedIn(userName, password)){
+              throw new IOException("the user"+ userName+ "already logged in");
            }
         } else {
            throw new IOException("CONNECT frame must contain login and password headers");
         }
      }
-
-   
 }

@@ -62,4 +62,14 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
             e.printStackTrace();
         }
     }
+
+    @Override
+    public UserStomp<T> getUser(){
+        return null;
+    }
+    
+    @Override
+    public void setUser(UserStomp<T> newUser){
+
+    }
 }

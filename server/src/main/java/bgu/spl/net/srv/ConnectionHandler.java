@@ -19,4 +19,8 @@ public interface ConnectionHandler<T> extends Closeable {
 
     void send(T msg);
 
+    UserStomp<T> getUser();
+
+    void setUser(UserStomp<T> newUser);
+
 }
