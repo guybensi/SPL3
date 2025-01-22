@@ -15,6 +15,7 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     private BufferedInputStream in;
     private BufferedOutputStream out;
     private volatile boolean connected = true;
+    private UserStomp<T> user = null; ///Our update
 
     public BlockingConnectionHandler(Socket sock, MessageEncoderDecoder<T> reader, MessagingProtocol<T> protocol) {
         this.sock = sock;
@@ -24,7 +25,7 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
 
     @Override
     public void run() {
-        try (Socket sock = this.sock) { //just for automatic closing
+        try (Socket sock = this.sock) {
             int read;
 
             in = new BufferedInputStream(sock.getInputStream());
@@ -33,18 +34,16 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
             while (!protocol.shouldTerminate() && connected && (read = in.read()) >= 0) {
                 T nextMessage = encdec.decodeNextByte((byte) read);
                 if (nextMessage != null) {
-                    T response = protocol.process(nextMessage);
-                    if (response != null) {
-                        out.write(encdec.encode(response));
-                        out.flush();
-                    }
+                   protocol.process(nextMessage);
+                    //if (response != null) { /////////////////Our update
+                        //out.write(encdec.encode(response));
+                        //out.flush();
+                    //}
                 }
             }
-
         } catch (IOException ex) {
             ex.printStackTrace();
         }
-
     }
 
     @Override
@@ -54,7 +53,7 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     }
 
     @Override
-    public void send(T msg) {///our implement
+    public synchronized void send(T msg) {///our implement
         try {
             out.write(encdec.encode(msg));
             out.flush();
@@ -64,12 +63,17 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     }
 
     @Override
-    public UserStomp<T> getUser(){
-        return null;
+    public UserStomp<T> getUser(){///Our update
+        return this.user;
     }
     
     @Override
-    public void setUser(UserStomp<T> newUser){
+    public void setUser(UserStomp<T> newUser){ ///Our update
+        this.user = newUser;
 
+    }
+
+    public MessagingProtocol<T> getProtocol(){///Our update
+        return protocol;
     }
 }
