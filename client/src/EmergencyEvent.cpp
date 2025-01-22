@@ -16,9 +16,8 @@ map<string, map<string, vector<EmergencyEvent>>> eventSummaryMap;
 
 EmergencyEvent::EmergencyEvent(const Event& e) : Event(e) {
     this->formatDateTime = formatToDateTime(to_string(e.get_date_time()));
-    //------------לוודא שמאוית נכון---------------
     this->active = isFieldTrue ("active");
-    this->forcesArrival = isFieldTrue ("forces arrival at scene");
+    this->forcesArrival = isFieldTrue ("forces_arrival_at_scene");
 }
 
 
@@ -50,37 +49,38 @@ void addToSummary(const Event& e, const string& username) {
 }
 
 
-void ensureChannelMutexExists(const std::string& channelName) {
-    static std::mutex mutexForMutexes; // מנעול להגנה על map המנעולים
-    std::lock_guard<std::mutex> lock(mutexForMutexes);
+void ensureChannelMutexExists(const string& channelName) {
+    static mutex mutexForMutexes; // מנעול להגנה על map המנעולים
+    lock_guard<mutex> lock(mutexForMutexes);
 
     if (channelMutexes.find(channelName) == channelMutexes.end()) {
-        channelMutexes.emplace(channelName, std::mutex());
+        channelMutexes.emplace(channelName, mutex());
     }
 }
 
 // פונקציה להמרת תאריך לפורמט הנדרש
-string formatToDateTime(const std::string& rawDateTime) {
-    std::istringstream input(rawDateTime);
-    std::ostringstream output;
+string formatToDateTime(const string& rawDateTime) {
+    istringstream input(rawDateTime);
+    ostringstream output;
     int year, month, day, hour, minute, second;
     char dash1, dash2, space, colon1, colon2;
 
     input >> year >> dash1 >> month >> dash2 >> day >> space >> hour >> colon1 >> minute >> colon2 >> second;
     if (input.fail()) {
-        throw std::invalid_argument("Invalid date format");
+        cerr << "Invalid date format" << endl;
+        return "-1";
     }
 
-    output << std::setfill('0') << std::setw(2) << day << "/"
-           << std::setw(2) << month << "/"
+    output << setfill('0') << setw(2) << day << "/"
+           << setw(2) << month << "/"
            << year << " "
-           << std::setw(2) << hour << ":"
-           << std::setw(2) << minute;
+           << setw(2) << hour << ":"
+           << setw(2) << minute;
 
     return output.str();
 }
 
-bool EmergencyEvent::isFieldTrue(const std::string& fieldName) const {
+bool EmergencyEvent::isFieldTrue(const string& fieldName) const {
     // אחזור על המידע הכללי
     const auto& generalInfo = get_general_information();
     auto it = generalInfo.find(fieldName);
@@ -88,21 +88,22 @@ bool EmergencyEvent::isFieldTrue(const std::string& fieldName) const {
     // בדיקה אם השדה קיים
     if (it != generalInfo.end()) {
         // הפיכת הערך ל-lowercase
-        std::string value = it->second;
-        std::transform(value.begin(), value.end(), value.begin(), ::tolower);
+        string value = it->second;
+        transform(value.begin(), value.end(), value.begin(), ::tolower);
 
         // החזרה אם הערך הוא "true"
         return value == "true";
     }
 
     // אם השדה לא נמצא
+    cout << fieldName << " not found!" << endl;
     return false;
 }
 
 
 
 // פונקציות גישה
-const std::string& EmergencyEvent::getFormatedDateTime() const {
+const string& EmergencyEvent::getFormatedDateTime() const {
     return this->formatDateTime; 
 }
 
