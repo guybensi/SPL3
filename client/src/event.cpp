@@ -1,5 +1,6 @@
 #include "../include/event.h"
 #include "../include/json.hpp"
+
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -8,7 +9,6 @@
 #include <sstream>
 #include <cstring>
 
-#include "../include/keyboardInput.h"
 
 using namespace std;
 using json = nlohmann::json;
@@ -60,6 +60,14 @@ const std::map<std::string, std::string> &Event::get_general_information() const
 const std::string &Event::get_description() const
 {
     return this->description;
+}
+
+void Event::split_str(const std::string &str, char delimiter, std::vector<std::string> &out) {
+    std::stringstream ss(str);
+    std::string item;
+    while (std::getline(ss, item, delimiter)) {
+        out.push_back(item);
+    }
 }
 
 Event::Event(const std::string &frame_body): channel_name(""), city(""), 
