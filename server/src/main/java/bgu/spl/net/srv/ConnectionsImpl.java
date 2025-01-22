@@ -13,6 +13,8 @@ public class ConnectionsImpl<T> implements Connections<T> {
     private final ConcurrentMap<String, LinkedList<Integer>> channels; // Map of channel -> List of connectionIds
     private ConcurrentHashMap<String, UserStomp<T>> users = new ConcurrentHashMap<>(); // Map of users names -> UserStomp
     private AtomicInteger msgIdCounter = new AtomicInteger();
+    public static final String STOMP_VERSION = "1.2";
+    public static final Object HOST = "stomp.cs.bgu.ac.il";
 
     public ConnectionsImpl() {
         activeConnectionHandlers = new ConcurrentHashMap<>();

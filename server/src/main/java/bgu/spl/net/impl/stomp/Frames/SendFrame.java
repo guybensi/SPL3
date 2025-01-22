@@ -1,5 +1,6 @@
 package bgu.spl.net.impl.stomp.Frames;
 
+import bgu.spl.net.srv.ConnectionHandler;
 import bgu.spl.net.srv.Connections;
 import java.io.IOException;
 import java.util.Map;
@@ -16,16 +17,28 @@ public class SendFrame extends Frame{
             checkDestination();
         } catch(IOException errowMessage){
             toSend = false;
-            //String[] SummaryAndBodyErr = var4.getMessage().split(":", 2);
-            //FrameUtil.handleError(this, SummaryAndBodyErr[0], SummaryAndBodyErr[1], this.connections, this.connectionId, (String)this.headers.get("receipt"));
+            //Send Error Frame
+            String[] headerAndBodyErr = errowMessage.getMessage().split(":", 2);
+            ServerFrameSender.sendErrorFrame(connectionId, this, (String)headers.get("receipt"), headerAndBodyErr[0], headerAndBodyErr[1],connections);
+            //Hendle Error
+            ConnectionHandler<String> handler = connections.getCHbyconnectionId(connectionId);
+            connections.disconnect(connectionId);
+            try {
+                handler.close();
+            } catch (IOException errException) {
+                errException.printStackTrace();
+            }
         }
         if (toSend == true) { 
             String destination = (String)this.headers.get("destination");
-            MessageFrame message = creatMessageFrame();
-            connections.send(destination ,message.toString());
-            //if (this.headers.containsKey("receipt")) {
-                //FrameUtil.sendReceiptFrame((String)this.headers.get("receipt"), this.connections, this.connectionId);
-             //}
+            String msgID = String.valueOf(connections.getAndIncMsgIdCounter());
+            String subscriptionId = findSubscriptionId(destination);
+            ServerFrameSender.sendMessageFrame(connectionId, msgID, destination, subscriptionId, body, connections);
+            
+            if (headers.containsKey("receipt")){
+                String receiptId = (String)headers.get("receipt");
+                ServerFrameSender.sendReceiptFrame(connectionId, receiptId,connections);
+            }
         }
     }
 
@@ -36,19 +49,10 @@ public class SendFrame extends Frame{
     ////// processפונקציות עזר ל
     private void checkDestination() throws IOException {
         if (!this.headers.containsKey("destination")) {
-            throw new IOException("SEND should contain destination header");
+            throw new IOException("Missing destination header:SEND should contain destination header");
         } else if (!this.connections.isDestinationLegal(((String)this.headers.get("destination")).substring(1), this.connectionId)) {
-            throw new IOException("channel doesn't exist or you're not subsribe to it");
+            throw new IOException("Illegal destination:Channel doesn't exist or you're not subsribe to it");
          }
-    }
-    private MessageFrame creatMessageFrame(){
-        String destination = (String)this.headers.get("destination");
-        String subscriptionId = findSubscriptionId(destination);
-        ConcurrentHashMap<String, String> HeadersForMessageFrame = new ConcurrentHashMap<>();
-        HeadersForMessageFrame.put("subscription", subscriptionId);
-        HeadersForMessageFrame.put("message-id", String.valueOf(connections.getAndIncMsgIdCounter()));
-        HeadersForMessageFrame.put("destination", destination);
-        return new MessageFrame(connectionId ,HeadersForMessageFrame, body, connections);
     }
 
     private String findSubscriptionId(String destination) {
