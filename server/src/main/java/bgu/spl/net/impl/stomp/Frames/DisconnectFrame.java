@@ -1,5 +1,6 @@
 package bgu.spl.net.impl.stomp.Frames;
 
+import bgu.spl.net.srv.ConnectionHandler;
 import bgu.spl.net.srv.Connections;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -15,11 +16,21 @@ public class DisconnectFrame extends Frame{
             checkReceipt();
         } catch(IOException errowMessage){
             toDisconnect = false;
-            //String[] SummaryAndBodyErr = var4.getMessage().split(":", 2);
-            //FrameUtil.handleError(this, SummaryAndBodyErr[0], SummaryAndBodyErr[1], this.connections, this.connectionId, (String)this.headers.get("receipt"));
+            //Send Error Frame
+            String[] headerAndBodyErr = errowMessage.getMessage().split(":", 2);
+            ServerFrameSender.sendErrorFrame(connectionId, this, (String)headers.get("receipt"), headerAndBodyErr[0], headerAndBodyErr[1],connections);
+            //Hendle Error
+            ConnectionHandler<String> handler = connections.getCHbyconnectionId(connectionId);
+            connections.disconnect(connectionId);
+            try {
+                handler.close();
+            } catch (IOException errException) {
+                errException.printStackTrace();
+            }
         }
-        if (toDisconnect == true) { 
-            //FrameUtil.sendReceiptFrame((String)this.headers.get("receipt"), this.connections, this.connectionId);
+        if (toDisconnect == true) {
+            String receiptId = (String)headers.get("receipt");
+            ServerFrameSender.sendReceiptFrame(connectionId, receiptId,connections);
             connections.disconnect(this.connectionId);
         }
     }

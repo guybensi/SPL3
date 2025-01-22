@@ -1,4 +1,5 @@
 package bgu.spl.net.impl.stomp.Frames;
+import bgu.spl.net.srv.ConnectionHandler;
 import bgu.spl.net.srv.Connections;
 import bgu.spl.net.srv.UserStomp;
 import java.io.IOException;
@@ -16,16 +17,27 @@ public class SubscribeFrame extends Frame{
             checkIfAlreadySub();
         } catch(IOException errowMessage){
             toSubscribe = false;
-            //String[] SummaryAndBodyErr = var4.getMessage().split(":", 2);
-            //FrameUtil.handleError(this, SummaryAndBodyErr[0], SummaryAndBodyErr[1], this.connections, this.connectionId, (String)this.headers.get("receipt"));
+            //Send Error Frame
+            String[] headerAndBodyErr = errowMessage.getMessage().split(":", 2);
+            ServerFrameSender.sendErrorFrame(connectionId, this, (String)headers.get("receipt"), headerAndBodyErr[0], headerAndBodyErr[1],connections);
+            //Hendle Error
+            ConnectionHandler<String> handler = connections.getCHbyconnectionId(connectionId);
+            connections.disconnect(connectionId);
+            try {
+                handler.close();
+            } catch (IOException errException) {
+                errException.printStackTrace();
+            }
         }
         if (toSubscribe== true) {
-            Integer id  = Integer.parseInt((String)this.headers.get("id")); 
-            String destination = (String)this.headers.get("destination");
-            connections.subscribe(this.connectionId, id ,destination);
-            //if (this.headers.containsKey("receipt")) {
-              //  FrameUtil.sendReceiptFrame((String)this.headers.get("receipt"), this.connections, this.connectionId);
-             //}
+            Integer id  = Integer.parseInt((String)headers.get("id")); 
+            String destination = (String)headers.get("destination");
+            connections.subscribe(connectionId, id ,destination);
+
+            if (headers.containsKey("receipt")){
+                String receiptId = (String)headers.get("receipt");
+                ServerFrameSender.sendReceiptFrame(connectionId, receiptId,connections);
+             }
         }
     }
 
@@ -35,8 +47,8 @@ public class SubscribeFrame extends Frame{
 
      ////// processפונקציות עזר ל
      private void checkHeaders() throws IOException {
-        if (!this.headers.containsKey("id") || !this.headers.containsKey("destination")) {
-           throw new IOException("SUBSCRIBE should contain id and destination headers");
+        if (!headers.containsKey("id") || !headers.containsKey("destination")) {
+           throw new IOException("Missing id and destination headers:SUBSCRIBE should contain id and destination headers");
         }
      }
   
@@ -45,7 +57,7 @@ public class SubscribeFrame extends Frame{
         Integer id = Integer.parseInt((String)headers.get("id"));
         Boolean isAlreadySub = user.getChannelSubscriptions().containsKey(id);
         if (isAlreadySub) {
-            throw new IOException("the user already subscribed with id " + id);
+            throw new IOException("Multiple Subscription :The user already subscribed with id " + id);
         }
     }
     
