@@ -11,10 +11,9 @@ using namespace std;
 StompProtocol::StompProtocol(const string& host, int port)
     : connectionHandler(host, port),
       username(""), connected(false), nextSubscriptionId(0), nextReceiptId(0),
-      receiptDisconnect(-1), shouldTerminate(false), isRunning(false),
-      readThread(), keyboardThread(), // אתחול threads
-      topicToSubscriptionId(), gotReceipt(), receiptCallbacks(),
-      eventSummaryMap(), eventSummaryMapMutex() {}
+      receiptDisconnect(-1),topicToSubscriptionId(), gotReceipt(), receiptCallbacks(), 
+      eventSummaryMap(), eventSummaryMapMutex(), readThread(), keyboardThread(), shouldTerminate(false),
+      isRunning(false){}
 
 void StompProtocol::start() {
     if (isRunning) {

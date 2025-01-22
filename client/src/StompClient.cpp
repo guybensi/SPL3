@@ -6,6 +6,7 @@
 using namespace std;
 
 int main(int argc, char* argv[]) {
+    
     // בדיקה אם מספר הפרמטרים תקין
     if (argc != 3) {
         cerr << "Usage: " << argv[0] << " <host> <port>" << endl;
@@ -26,6 +27,8 @@ int main(int argc, char* argv[]) {
         cerr << "Error: Invalid port number. Please provide a valid port." << endl;
         return 1;
     }
+    cout << "Connecting to " << host << " on port " << port << "..." << endl;
+
 
     try {
         // יצירת אובייקט StompProtocol והפעלתו
