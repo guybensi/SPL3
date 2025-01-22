@@ -118,7 +118,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
      //////////for send frame//////////
      public boolean isDestinationLegal(String channel, int connectionId) {
-        return this.channels.containsKey(channel) && ((ConnectionHandler<T>)this.activeConnectionHandlers.get(connectionId)).getUser().getChannels().contains(channel);
+        return this.channels.containsKey(channel) && ((ConnectionHandler<T>)this.activeConnectionHandlers.get(connectionId)).getUser().getChannelSubscriptions().contains(channel);
      }
      public int getAndIncMsgIdCounter() {
         return this.msgIdCounter.getAndIncrement();

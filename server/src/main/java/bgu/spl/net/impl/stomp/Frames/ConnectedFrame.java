@@ -1,8 +1,6 @@
 package bgu.spl.net.impl.stomp.Frames;
 
 import bgu.spl.net.srv.Connections;
-import java.io.IOException;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ConnectedFrame extends Frame {
