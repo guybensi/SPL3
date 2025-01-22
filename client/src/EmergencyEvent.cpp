@@ -14,7 +14,7 @@ using namespace std;
 // מפת הסיכומים לפי ערוצים
 map<string, map<string, vector<EmergencyEvent>>> eventSummaryMap;
 
-EmergencyEvent::EmergencyEvent(const Event& e) : Event(e) {
+EmergencyEvent::EmergencyEvent(const Event& e) : Event(e), formatDateTime(""), active(false), forcesArrival (false) {
     this->formatDateTime = formatToDateTime(to_string(e.get_date_time()));
     this->active = isFieldTrue ("active");
     this->forcesArrival = isFieldTrue ("forces_arrival_at_scene");

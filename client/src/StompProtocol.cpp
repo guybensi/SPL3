@@ -9,9 +9,12 @@
 using namespace std;
 
 StompProtocol::StompProtocol(const string& host, int port)
-    : connectionHandler(host, port), username(""), connected(false),
-      nextSubscriptionId(0), nextReceiptId(0), receiptDisconnect(-1),
-      shouldTerminate(false), isRunning(false) {}
+    : connectionHandler(host, port),
+      username(""), connected(false), nextSubscriptionId(0), nextReceiptId(0),
+      receiptDisconnect(-1), shouldTerminate(false), isRunning(false),
+      readThread(), keyboardThread(), // אתחול threads
+      topicToSubscriptionId(), gotReceipt(), receiptCallbacks(),
+      eventSummaryMap(), eventSummaryMapMutex() {}
 
 void StompProtocol::start() {
     if (isRunning) {
@@ -126,9 +129,6 @@ Frame StompProtocol::handleLogin(const string& hostPort, const string& username,
     if (colonPos == string::npos) {
         throw runtime_error("Invalid host:port format");
     }
-
-    string host = hostPort.substr(0, colonPos);
-    int port = stoi(hostPort.substr(colonPos + 1));
 
     if (!connectionHandler.connect()) {
         throw runtime_error("Could not connect to server");
