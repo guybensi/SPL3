@@ -3,9 +3,10 @@ package bgu.spl.net.impl.stomp.Frames;
 import bgu.spl.net.srv.Connections;
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ConnectFrame extends Frame {
-   ConnectFrame(int connectionId,Map<String, String> headers,String body, Connections<String> connections) {
+   ConnectFrame(int connectionId,ConcurrentHashMap<String, String> headers,String body, Connections<String> connections) {
       super(connectionId,headers, body,connections);
    }
 
