@@ -11,6 +11,7 @@ public:
     map<string, string> headers; // Headers as key-value pairs
     string body;                        // Body of the frame
 
+    Frame();
     // Parses a raw STOMP frame string into a Frame object
     static Frame parse(const string& rawFrame);
 

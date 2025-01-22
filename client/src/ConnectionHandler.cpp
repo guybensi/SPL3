@@ -92,7 +92,7 @@ bool ConnectionHandler::getFrameAscii(std::string &frame, char delimiter) {
 	return true;
 }
 
-bool ConnectionHandler::getFrame(Frame &frame) {
+bool ConnectionHandler::getFrame(Frame &frame) {//our method
     std::string rawFrame;
     if (!getFrameAscii(rawFrame, '\0')) {
         return false; // כישלון בקריאה מהסוקט
