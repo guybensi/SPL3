@@ -13,7 +13,7 @@ import bgu.spl.net.srv.Connections;
 public class FrameParser {
 
     public static Frame Parse(String msg, Connections<String> connections, int connectionId) {
-        Queue<String> msgLines = new LinkedList(Arrays.asList(msg.split("\\n")));
+        Queue<String> msgLines = new LinkedList<>(Arrays.asList(msg.split("\\n")));
         //get the command tayp
         String frameCommandType = (String)msgLines.remove();
         //Creating headers
@@ -24,12 +24,12 @@ public class FrameParser {
         }
         String body = creatBody(msgLines);
         //Creating frame by command type
-        Frame frame = creatFrame(frameCommandType, headers, body, connections, connectionId);
+        Frame frame = creatFrame( connectionId, frameCommandType, headers, body, connections);
         return frame;
    }
 
     private static Map<String, String> creatHeaders(Queue<String> msgLines) {
-        ConcurrentHashMap headers = new ConcurrentHashMap();
+        ConcurrentHashMap<String,String> headers = new ConcurrentHashMap<>();
         while(!msgLines.isEmpty() && !((String)msgLines.peek()).equals("")) {
             String[] lineKeyVal = ((String)msgLines.remove()).split(":");
             headers.put(lineKeyVal[0], lineKeyVal[1]);
@@ -45,7 +45,7 @@ public class FrameParser {
         return body.toString();
     }
 
-    private static Frame creatFrame(String frameCommandType, Map<String, String> headers, String body, Connections<String> connections, int connectionId) {
+    private static Frame creatFrame(int connectionId ,String frameCommandType, Map<String, String> headers, String body, Connections<String> connections) {
         Map<String, Class<? extends Frame>> commandToFrameMap = new HashMap<>();
         commandToFrameMap.put("CONNECT", ConnectFrame.class);
         commandToFrameMap.put("CONNECTED", ConnectedFrame.class);
@@ -62,18 +62,11 @@ public class FrameParser {
             return null; 
         }
         try {
-            Constructor<? extends Frame> constructor = frameClass.getConstructor(String.class, Map.class, Connections.class, int.class);
-            return constructor.newInstance(body, headers, connections, connectionId);
-        } catch (Exception e) {
-            e.printStackTrace();
+            Constructor<? extends Frame> constructor = frameClass.getConstructor(int.class,Map.class, String.class, Connections.class);
+            return constructor.newInstance(connectionId,headers,body ,connections);
+        } catch (Exception err) {
+            err.printStackTrace();
             return null;
         }
     }
-
-
-
-
-
-
-
 }

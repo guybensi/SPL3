@@ -1,28 +1,26 @@
 package bgu.spl.net.impl.stomp;
 
 import bgu.spl.net.api.StompMessagingProtocol;
+import bgu.spl.net.impl.stomp.Frames.Frame;
+import bgu.spl.net.impl.stomp.Frames.FrameParser;
 import bgu.spl.net.srv.Connections;
-import bgu.spl.net.srv.ConnectionsImpl;
-import java.util.Map;
-import java.util.HashMap;
 
-public class StompProtocolImpl<T> implements StompMessagingProtocol<T> {
+public class StompProtocolImpl implements StompMessagingProtocol<String> {
 
     private int connectionId;
-    private Connections<T> connections =  new ConnectionsImpl<>(); ////////////////cheak!!!
+    private Connections<String> connections;
     private boolean shouldTerminate = false;
 
     @Override
-    public void start(int connectionId, Connections<T> connections) {
+    public void start(int connectionId, Connections<String> connections) {
         this.connectionId = connectionId;
         this.connections = connections;
     }
 
     @Override
-    public void process(T message) {
-        String frame = (String) message;
-        String[] lines = frame.split("\n");
-        String command = lines[0];
+    public void process(String message) {
+        Frame frame = FrameParser.Parse(message, this.connections, this.connectionId);
+        frame.process();
 
     }
     
