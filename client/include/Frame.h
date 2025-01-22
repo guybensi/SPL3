@@ -12,7 +12,7 @@ public:
     string body;                        // Body of the frame
 
     // Parses a raw STOMP frame string into a Frame object
-    static Frame parse(conststring& rawFrame);
+    static Frame parse(const string& rawFrame);
 
     // Converts a Frame object into a raw STOMP frame string
     string toString() const;
