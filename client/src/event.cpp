@@ -19,57 +19,6 @@ Event::Event(std::string channel_name, std::string city, std::string name, int d
       date_time(date_time), description(description), general_information(general_information), eventOwnerUser("")
 {
 }
-
-Event::~Event()
-{
-}
-
-void Event::setEventOwnerUser(std::string setEventOwnerUser) {
-    eventOwnerUser = setEventOwnerUser;
-}
-
-const std::string &Event::getEventOwnerUser() const {
-    return eventOwnerUser;
-}
-
-const std::string &Event::get_channel_name() const
-{
-    return this->channel_name;
-}
-
-const std::string &Event::get_city() const
-{
-    return this->city;
-}
-
-const std::string &Event::get_name() const
-{
-    return this->name;
-}
-
-int Event::get_date_time() const
-{
-    return this->date_time;
-}
-
-const std::map<std::string, std::string> &Event::get_general_information() const
-{
-    return this->general_information;
-}
-
-const std::string &Event::get_description() const
-{
-    return this->description;
-}
-
-void Event::split_str(const std::string &str, char delimiter, std::vector<std::string> &out) {
-    std::stringstream ss(str);
-    std::string item;
-    while (std::getline(ss, item, delimiter)) {
-        out.push_back(item);
-    }
-}
-
 Event::Event(const std::string &frame_body): channel_name(""), city(""), 
                                              name(""), date_time(0), description(""), general_information(),
                                              eventOwnerUser("")
@@ -121,6 +70,59 @@ Event::Event(const std::string &frame_body): channel_name(""), city(""),
     }
     general_information = general_information_from_string;
 }
+
+Event::~Event()
+{
+}
+
+void Event::setEventOwnerUser(std::string setEventOwnerUser) {
+    eventOwnerUser = setEventOwnerUser;
+}
+
+const std::string &Event::getEventOwnerUser() const {
+    return eventOwnerUser;
+}
+
+const std::string &Event::get_channel_name() const
+{
+    return this->channel_name;
+}
+
+const std::string &Event::get_city() const
+{
+    return this->city;
+}
+const std::string &Event::get_description() const
+{
+    return this->description;
+}
+
+const std::string &Event::get_name() const
+{
+    return this->name;
+}
+
+int Event::get_date_time() const
+{
+    return this->date_time;
+}
+
+const std::map<std::string, std::string> &Event::get_general_information() const
+{
+    return this->general_information;
+}
+
+
+
+void Event::split_str(const std::string &str, char delimiter, std::vector<std::string> &out) {
+    std::stringstream ss(str);
+    std::string item;
+    while (std::getline(ss, item, delimiter)) {
+        out.push_back(item);
+    }
+}
+
+
 
 names_and_events parseEventsFile(std::string json_path)
 {

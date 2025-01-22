@@ -4,6 +4,7 @@
 
 // שימוש ב-using namespace std כדי לפשט את הקוד
 using namespace std;
+Frame:: Frame(){}
 
 Frame Frame::parse(const string& rawFrame) {
     Frame frame;

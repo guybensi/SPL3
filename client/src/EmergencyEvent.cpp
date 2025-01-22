@@ -13,6 +13,7 @@ using namespace std;
 
 // מפת הסיכומים לפי ערוצים
 map<string, map<string, vector<EmergencyEvent>>> eventSummaryMap;
+map<string, shared_ptr<mutex>> channelMutexes;
 
 EmergencyEvent::EmergencyEvent(const Event& e) : Event(e), formatDateTime(""), active(false), forcesArrival (false) {
     this->formatDateTime = formatToDateTime(to_string(e.get_date_time()));
@@ -35,7 +36,7 @@ void addToSummary(const Event& e, const string& username) {
     ensureChannelMutexExists(e.get_channel_name());
 
     // נעילת המנעול של הערוץ המסוים
-    lock_guard<mutex> lock(channelMutexes[e.get_channel_name()]);
+    lock_guard<mutex> lock(*channelMutexes[e.get_channel_name()]);
 
     // יצירת האירוע
     EmergencyEvent eventSummary(e);
@@ -54,9 +55,10 @@ void ensureChannelMutexExists(const string& channelName) {
     lock_guard<mutex> lock(mutexForMutexes);
 
     if (channelMutexes.find(channelName) == channelMutexes.end()) {
-        channelMutexes.emplace(channelName, mutex());
+        channelMutexes.emplace(channelName, make_shared<mutex>());
     }
 }
+
 
 // פונקציה להמרת תאריך לפורמט הנדרש
 string formatToDateTime(const string& rawDateTime) {
