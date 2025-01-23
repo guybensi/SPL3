@@ -9,26 +9,34 @@
 using namespace std;
 
 
-StompProtocol::StompProtocol(const std::string& host, int port)
-    : SCH(), username(""), connected(false), nextSubscriptionId(0), nextReceiptId(0),
+StompProtocol::StompProtocol(ConnectionHandler* connectionHandler)
+    : CH(connectionHandler), username(""), connected(false), nextSubscriptionId(0), nextReceiptId(0),
       receiptDisconnect(-1), topicToSubscriptionId(), gotReceipt(), gotReceiptMutex(), 
       receiptCallbacks(), receiptCallbacksMutex(), eventSummaryMap(), eventSummaryMapMutex(),
       readThread(), keyboardThread(), shouldTerminate(false), isRunning(false) {
-    try {
-        SCH.setConnection(host, port);
-    } catch (const std::exception& e) {
-        throw std::runtime_error("Failed to initialize StompProtocol: " + std::string(e.what()));
-    }
+
+}
+StompProtocol::StompProtocol(const StompProtocol& SP){}
+
+StompProtocol& StompProtocol::operator=(const StompProtocol&){
+    return *this;
 }
 
+StompProtocol::~StompProtocol() {
+    if (isRunning) {
+        stop();   
+    }
+    delete CH;
+}
 void StompProtocol::start() {
+
     if (isRunning) {
         cerr << "Client is already running, stop it and try again." << endl;
         return;
     }
 
     isRunning = true;
-    cout << "Welcome to the STOMP client. Please type 'login <host:port> <username> <password>' to connect." << endl;
+
 
     // הפעלת לולאות הקלט והפלט
     keyboardThread = thread([this]() { keyboardLoop(); });
@@ -47,7 +55,7 @@ void StompProtocol::stop() {
     }
 
     shouldTerminate = true;
-    SCH.close();
+    CH->close();
 
     if (readThread.joinable()) {
         readThread.join();
@@ -63,11 +71,7 @@ void StompProtocol::stop() {
     cout << "Client stopped." << endl;
 }
 
-StompProtocol::~StompProtocol() {
-    if (isRunning) {
-        stop();
-    }
-}
+
 
 void StompProtocol::keyboardLoop() {
     while (!shouldTerminate) {
@@ -139,11 +143,14 @@ Frame StompProtocol::handleLogin(const string& hostPort, const string& username,
     string host = hostPort.substr(0, colonPos);
     short port = static_cast<short>(stoi(hostPort.substr(colonPos + 1)));
 
-    try {
-        // השתמש ב-setConnection של StompConnectionHandler
-        SCH.setConnection(host, port);
-    } catch (const std::exception& e) {
-        throw runtime_error("Could not establish connection: " + string(e.what()));
+    if (host.empty() ||  username.empty() || password.empty()) {//|| port.empty()
+        std::cerr << "Missing one or more arguments. Expected <host:port> <username> <password>." << std::endl;
+        return {};
+    }
+    CH = new ConnectionHandler(host, port);
+    if(!CH->connect()){
+        std::cerr << "Coulden't connect to server...." << std::endl;
+        return {};
     }
 
     Frame frame;
@@ -252,8 +259,8 @@ Frame StompProtocol::handleLogout() {
 
 void StompProtocol::sendFrame(const Frame& frame) {
     string frameStr = frame.toString();
-    if (!SCH.sendFrameAscii(frameStr, '\0')) {
-        SCH.close();
+    if (!CH->sendFrameAscii(frameStr, '\0')) {
+        CH->close();
         cerr << "Failed to send frame: " << frame.command << endl;
     }
 }
@@ -287,13 +294,17 @@ bool StompProtocol::isReceiptValid(const Frame& frame, int receiptId) {
 }
 
 void StompProtocol::readLoop() {
+    
     while (!shouldTerminate) {
         Frame response;
-        if (SCH.getFrame(response)) {
-            handleFrame(response);
-        } else {
-            cerr << "Failed to receive response from server." << endl;
+        if (CH != nullptr){
+            if (CH->getFrame(response)) {
+                handleFrame(response);
+            }else {
+                cerr << "Failed to receive response from server." << endl;
+            }
         }
+        
     }
 }
 
