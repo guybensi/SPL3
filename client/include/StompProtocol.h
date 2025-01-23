@@ -8,13 +8,14 @@
 #include <vector>
 #include <string>
 #include "ConnectionHandler.h"
+#include "StompConnectionHandler.h"
 #include "Frame.h"
 #include "EmergencyEvent.h"
 using namespace std;
 
 class StompProtocol {
 private:
-    ConnectionHandler connectionHandler;
+    StompConnectionHandler StompConnectionHandler;
     string username;
     bool connected;
     int nextSubscriptionId;
@@ -22,7 +23,9 @@ private:
     int receiptDisconnect;
     map<string, int> topicToSubscriptionId;
     map<int, bool> gotReceipt;
+    mutex gotReceiptMutex;
     map<int, std::string> receiptCallbacks;
+    mutex receiptCallbacksMutex;
     map<std::string, std::map<string, vector<EmergencyEvent>>> eventSummaryMap;
     mutex eventSummaryMapMutex;
     thread readThread;
@@ -31,7 +34,7 @@ private:
     bool isRunning;
 
 public:
-    StompProtocol(const std::string& host, int port);
+    StompProtocol();
     void start();
     void stop();
     ~StompProtocol();
