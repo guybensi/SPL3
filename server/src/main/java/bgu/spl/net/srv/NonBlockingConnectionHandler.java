@@ -20,6 +20,7 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
     private final Queue<ByteBuffer> writeQueue = new ConcurrentLinkedQueue<>();
     private final SocketChannel chan;
     private final Reactor reactor;
+    private UserStomp<T> user = null; ///Our update
 
     public NonBlockingConnectionHandler(
             MessageEncoderDecoder<T> reader,
@@ -49,11 +50,11 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
                     while (buf.hasRemaining()) {
                         T nextMessage = encdec.decodeNextByte(buf.get());
                         if (nextMessage != null) {
-                            T response = protocol.process(nextMessage);
-                            if (response != null) {
-                                writeQueue.add(ByteBuffer.wrap(encdec.encode(response)));
-                                reactor.updateInterestedOps(chan, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
-                            }
+                            protocol.process(nextMessage);///Our update
+                            //if (response != null) {
+                                //writeQueue.add(ByteBuffer.wrap(encdec.encode(response)));
+                                //reactor.updateInterestedOps(chan, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+                            //}
                         }
                     }
                 } finally {
@@ -121,12 +122,16 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
         //IMPLEMENT IF NEEDED
     }
     @Override
-    public UserStomp<T> getUser(){
-        return null;
+    public UserStomp<T> getUser(){///Our update
+        return this.user;
     }
 
     @Override
-    public void setUser(UserStomp<T> newUser){
-
+    public void setUser(UserStomp<T> newUser){///Our update
+        this.user = newUser;
     }
+
+    public MessagingProtocol<T> getProtocol() {///Our update
+        return this.protocol;
+     }
 }

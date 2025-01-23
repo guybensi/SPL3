@@ -34,7 +34,7 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
             while (!protocol.shouldTerminate() && connected && (read = in.read()) >= 0) {
                 T nextMessage = encdec.decodeNextByte((byte) read);
                 if (nextMessage != null) {
-                   protocol.process(nextMessage);
+                   protocol.process(nextMessage); ///Our update
                     //if (response != null) { /////////////////Our update
                         //out.write(encdec.encode(response));
                         //out.flush();
@@ -55,8 +55,10 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     @Override
     public synchronized void send(T msg) {///our implement
         try {
-            out.write(encdec.encode(msg));
-            out.flush();
+            if (msg != null) {
+                out.write(encdec.encode(msg));
+                out.flush();
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }

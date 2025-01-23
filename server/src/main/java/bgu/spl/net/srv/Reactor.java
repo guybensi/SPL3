@@ -23,6 +23,9 @@ public class Reactor<T> implements Server<T> {
     private Thread selectorThread;
     private final ConcurrentLinkedQueue<Runnable> selectorTasks = new ConcurrentLinkedQueue<>();
 
+       private Connections<T> connections;///Our update
+   private int connectionIdCounter = 0;///Our update
+
     public Reactor(
             int numThreads,
             int port,
@@ -42,7 +45,7 @@ public class Reactor<T> implements Server<T> {
                 ServerSocketChannel serverSock = ServerSocketChannel.open()) {
 
             this.selector = selector; //just to be able to close
-
+            this.connections = new ConnectionsImpl();///Our update
             serverSock.bind(new InetSocketAddress(port));
             serverSock.configureBlocking(false);
             serverSock.register(selector, SelectionKey.OP_ACCEPT);
@@ -100,6 +103,11 @@ public class Reactor<T> implements Server<T> {
                 protocolFactory.get(),
                 clientChan,
                 this);
+        this.pool.submit(handler, () -> { ///Our update
+            handler.getProtocol().start(this.connectionIdCounter, this.connections);
+            this.connections.addConnectionHandler(handler, this.connectionIdCounter);
+        });
+        ++this.connectionIdCounter;///Our update
         clientChan.register(selector, SelectionKey.OP_READ, handler);
     }
 
