@@ -4,7 +4,7 @@
 
 using namespace std;
 
-int main() {
+int main(int argc, char* argv[]) {
     cout << "Welcome to the STOMP client. Please type 'login <host:port> <username> <password>' to connect." << endl;
     try {
         ConnectionHandler* connectionHandler = nullptr;

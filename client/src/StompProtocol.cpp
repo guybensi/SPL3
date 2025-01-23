@@ -75,7 +75,6 @@ void StompProtocol::stop() {
 
 void StompProtocol::keyboardLoop() {
     while (!shouldTerminate) {
-        cout << "started keyboardLoop" << endl;
         string line;
         getline(cin, line);
         Frame frame;
@@ -148,7 +147,6 @@ Frame StompProtocol::handleLogin(const string& hostPort, const string& username,
         std::cerr << "Missing one or more arguments. Expected <host:port> <username> <password>." << std::endl;
         return {};
     }
-
     CH = new ConnectionHandler(host, port);
     if(!CH->connect()){
         std::cerr << "Coulden't connect to server...." << std::endl;
@@ -298,13 +296,15 @@ bool StompProtocol::isReceiptValid(const Frame& frame, int receiptId) {
 void StompProtocol::readLoop() {
     
     while (!shouldTerminate) {
-        cout << "started readLoop"  << endl;
         Frame response;
-        if (CH->getFrame(response)) {
-            handleFrame(response);
-        } else {
-            cerr << "Failed to receive response from server." << endl;
+        if (CH != nullptr){
+            if (CH->getFrame(response)) {
+                handleFrame(response);
+            }else {
+                cerr << "Failed to receive response from server." << endl;
+            }
         }
+        
     }
 }
 
