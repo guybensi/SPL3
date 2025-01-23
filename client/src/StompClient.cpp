@@ -7,11 +7,10 @@ using namespace std;
 int main() {
     cout << "Welcome to the STOMP client. Please type 'login <host:port> <username> <password>' to connect." << endl;
     try {
-        // יצירת אובייקט StompProtocol
-        StompProtocol stompProtocol("", 0);
-
+        ConnectionHandler* connectionHandler = nullptr;
+        StompProtocol StompProtocol(connectionHandler);
         // הפעלת התוכנית
-        stompProtocol.start();
+        StompProtocol.start();
     } catch (const exception& e) {
         cerr << "Error: " << e.what() << endl;
         return 1;

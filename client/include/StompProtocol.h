@@ -8,14 +8,13 @@
 #include <vector>
 #include <string>
 #include "ConnectionHandler.h"
-#include "StompConnectionHandler.h"
 #include "Frame.h"
 #include "EmergencyEvent.h"
 using namespace std;
 
 class StompProtocol {
 private:
-    StompConnectionHandler SCH;
+    ConnectionHandler* CH;
     string username;
     bool connected;
     int nextSubscriptionId;
@@ -35,10 +34,14 @@ private:
 
 public:
     StompProtocol(); // בנאי ברירת מחדל
-    StompProtocol(const std::string& host, int port); // **בנאי מותאם אישית**
+    StompProtocol(ConnectionHandler* connectionHandler); // **בנאי מותאם אישית**
+    //rule of 3
+    StompProtocol(const StompProtocol& SP);
+    StompProtocol& operator=(const StompProtocol&);
+    ~StompProtocol();
     void start();
     void stop();
-    ~StompProtocol();
+    
 
 private:
     void keyboardLoop();
