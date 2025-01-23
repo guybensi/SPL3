@@ -50,6 +50,5 @@ public:
 
 	// Close down the connection properly.
 	void close();
-	void updateConnection(const std::string& host, short port);
 
 }; //class ConnectionHandler

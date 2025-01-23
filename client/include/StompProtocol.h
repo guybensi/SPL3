@@ -8,13 +8,14 @@
 #include <vector>
 #include <string>
 #include "ConnectionHandler.h"
+#include "StompConnectionHandler.h"
 #include "Frame.h"
 #include "EmergencyEvent.h"
 using namespace std;
 
 class StompProtocol {
 private:
-    ConnectionHandler connectionHandler;
+    StompConnectionHandler StompConnectionHandler;
     string username;
     bool connected;
     int nextSubscriptionId;
@@ -33,7 +34,7 @@ private:
     bool isRunning;
 
 public:
-    StompProtocol(const std::string& host, int port);
+    StompProtocol();
     void start();
     void stop();
     ~StompProtocol();
