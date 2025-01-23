@@ -53,7 +53,7 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     }
 
     @Override
-    public synchronized void send(T msg) {///our implement
+    public void send(T msg) {///our implement
         try {
             if (msg != null) {
                 out.write(encdec.encode(msg));

@@ -40,8 +40,10 @@ public class ConnectionsImpl<T> implements Connections<T> {
     public void send(String channel, T msg) {
         LinkedList<Integer> subscribers = channels.get(channel);
         if (subscribers != null) {
-            for (int connectionId : subscribers) {
-                send(connectionId, msg); // Send the message to each subscriber
+            synchronized (subscribers) { 
+                for (int connectionId : subscribers) {
+                    send(connectionId, msg); // Send the message to each subscriber
+                }
             }
         }
     }
@@ -53,7 +55,9 @@ public class ConnectionsImpl<T> implements Connections<T> {
         if (currUser != null) {
             //unsubscribe the user from all channels
             for (LinkedList<Integer> subscribers : channels.values()) {
-                subscribers.remove(connectionId);
+                synchronized (subscribers) {
+                    subscribers.remove((Integer) connectionId);
+                }
             }
             //Update the user as disconnected
             currUser.getChannelSubscriptions().clear();
@@ -75,14 +79,16 @@ public class ConnectionsImpl<T> implements Connections<T> {
     public void login(int connectionId, String userName, String password) {
         UserStomp<T> user;
         ConnectionHandler<T> newHandler = (ConnectionHandler<T>)this.activeConnectionHandlers.get(connectionId);
-        if (this.users.containsKey(userName)) {
-            user = (UserStomp<T>)this.users.get(userName);
-            user.setIsConnected(true);
-            user.setConnectionId(connectionId);
-            user.setConnectionHandler(newHandler);
-        } else {
-           user = new UserStomp<T> (connectionId, userName, password, (ConnectionHandler<T>)this.activeConnectionHandlers.get(connectionId));
-           users.put(userName, user);        
+        synchronized (users) {
+            if (this.users.containsKey(userName)) {
+                user = this.users.get(userName);
+                user.setIsConnected(true);
+                user.setConnectionId(connectionId);
+                user.setConnectionHandler(newHandler);
+            } else {
+                user = new UserStomp<>(connectionId, userName, password, newHandler);
+                users.put(userName, user);
+            }
         }
         newHandler.setUser(user);
      }
@@ -95,10 +101,10 @@ public class ConnectionsImpl<T> implements Connections<T> {
         Map<Integer, String> ChannelsOfUser = currUser.getChannelSubscriptions();
         ChannelsOfUser.put(subscriptionId, channel);
         //add the connectionId to the channel's list
-        if (!this.channels.containsKey(channel)) {
-            this.channels.put(channel, new LinkedList<Integer>());
-        }
-        ((LinkedList<Integer>)channels.get(channel)).push(connectionId);
+        channels.computeIfAbsent(channel, key -> new LinkedList<>());
+        synchronized (channels.get(channel)) {
+            channels.get(channel).push(connectionId);
+        }        
     }
     public ConnectionHandler<T> getCHbyconnectionId(int connectionId) {
         return (ConnectionHandler<T>)this.activeConnectionHandlers.get(connectionId);
@@ -111,7 +117,9 @@ public class ConnectionsImpl<T> implements Connections<T> {
         Map<Integer, String> ChannelsOfUser = currUser.getChannelSubscriptions();
         String channelToRemove = (String)ChannelsOfUser.get(subscriptionId);
         ///remove the subscription from the channel's list
-        ((LinkedList<Integer>)this.channels.get(channelToRemove)).remove(connectionId);
+        synchronized (channels.get(channelToRemove)) {
+            channels.get(channelToRemove).remove((Integer) connectionId);
+        }
         ///remove the channel from the user's subscription list
         ChannelsOfUser.remove(subscriptionId);
      }
@@ -123,7 +131,4 @@ public class ConnectionsImpl<T> implements Connections<T> {
      public int getAndIncMsgIdCounter() {
         return this.msgIdCounter.getAndIncrement();
     }
-     
-     
-
 }
