@@ -71,6 +71,9 @@ public class ConnectionsImpl<T> implements Connections<T> {
     
     //////////for connect frame//////////
     public boolean checkPasswordToUser(String userName, String Password) {
+        if (!this.users.containsKey(userName)) {
+            System.out.println("there no user as" + userName);
+        }
         return !this.users.containsKey(userName) || ((UserStomp<T>)this.users.get(userName)).getPassword().equals(Password);
     }
     public boolean checkIfUserLogedIn(String userName, String Password) {

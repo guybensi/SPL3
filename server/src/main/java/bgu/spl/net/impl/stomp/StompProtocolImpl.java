@@ -20,6 +20,9 @@ public class StompProtocolImpl implements StompMessagingProtocol<String> {
     @Override
     public void process(String message) {
         Frame frame = FrameParser.Parse(message, this.connections, this.connectionId);
+
+        
+        System.out.println(frame.toString());
         frame.process();
 
     }

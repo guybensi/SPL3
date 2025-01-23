@@ -1,10 +1,10 @@
 package bgu.spl.net.impl.stomp.Frames;
 
-import java.lang.reflect.Constructor;
+//import java.lang.reflect.Constructor;
 import java.util.Arrays;
-import java.util.HashMap;
+//import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.Map;
+//import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -17,7 +17,7 @@ public class FrameParser {
         //get the command tayp
         String frameCommandType = (String)msgLines.remove();
         //Creating headers
-        Map<String, String> headers = creatHeaders(msgLines);
+        ConcurrentHashMap<String, String> headers = creatHeaders(msgLines);
         //Creating body
         if (!msgLines.isEmpty() && ((String)msgLines.peek()).equals("")) {
             msgLines.remove();
@@ -28,7 +28,7 @@ public class FrameParser {
         return frame;
    }
 
-    private static Map<String, String> creatHeaders(Queue<String> msgLines) {
+    private static ConcurrentHashMap<String, String> creatHeaders(Queue<String> msgLines) {
         ConcurrentHashMap<String,String> headers = new ConcurrentHashMap<>();
         while(!msgLines.isEmpty() && !((String)msgLines.peek()).equals("")) {
             String[] lineKeyVal = ((String)msgLines.remove()).split(":");
@@ -45,7 +45,33 @@ public class FrameParser {
         return body.toString();
     }
 
-    private static Frame creatFrame(int connectionId ,String frameCommandType, Map<String, String> headers, String body, Connections<String> connections) {
+    private static Frame creatFrame(int connectionId, String frameCommandType, ConcurrentHashMap<String, String> headers, String body, Connections<String> connections) {
+        switch (frameCommandType) {
+            case "CONNECT":
+                return new ConnectFrame(connectionId, headers, body, connections);
+            case "CONNECTED":
+                return new ConnectedFrame(connectionId, headers, body, connections);
+            case "DISCONNECT":
+                return new DisconnectFrame(connectionId, headers, body, connections);
+            case "MESSAGE":
+                return new MessageFrame(connectionId, headers, body, connections);
+            case "RECEIPT":
+                return new ReceiptFrame(connectionId, headers, body, connections);
+            case "SEND":
+                return new SendFrame(connectionId, headers, body, connections);
+            case "SUBSCRIBE":
+                return new SubscribeFrame(connectionId, headers, body, connections);
+            case "UNSUBSCRIBE":
+                return new UnsubscribeFrame(connectionId, headers, body, connections);
+            case "ERROR":
+                return new ErrorFrame(connectionId, headers, body, connections);
+            default:
+                return null;
+        }
+    }
+    
+/* 
+    private static Frame creatFrame(int connectionId ,String frameCommandType, ConcurrentHashMap<String, String> headers, String body, Connections<String> connections) {
         Map<String, Class<? extends Frame>> commandToFrameMap = new HashMap<>();
         commandToFrameMap.put("CONNECT", ConnectFrame.class);
         commandToFrameMap.put("CONNECTED", ConnectedFrame.class);
@@ -62,11 +88,11 @@ public class FrameParser {
             return null; 
         }
         try {
-            Constructor<? extends Frame> constructor = frameClass.getConstructor(int.class,Map.class, String.class, Connections.class);
+            Constructor<? extends Frame> constructor = frameClass.getConstructor(int.class,ConcurrentHashMap.class, String.class, Connections.class);
             return constructor.newInstance(connectionId,headers,body ,connections);
         } catch (Exception err) {
             err.printStackTrace();
             return null;
         }
-    }
+    }*/
 }
