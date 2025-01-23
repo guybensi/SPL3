@@ -54,3 +54,11 @@ bool StompConnectionHandler::getFrameAscii(std::string& frame, char delimiter) {
     }
     return connectionHandler->getFrameAscii(frame, delimiter);
 }
+
+bool StompConnectionHandler::getFrame(Frame& frame) {
+    if (!connectionHandler) {
+        throw std::runtime_error("No connection handler available.");
+    }
+    return connectionHandler->getFrame(frame);
+}
+

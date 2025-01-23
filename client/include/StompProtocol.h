@@ -15,7 +15,7 @@ using namespace std;
 
 class StompProtocol {
 private:
-    StompConnectionHandler StompConnectionHandler;
+    StompConnectionHandler SCH;
     string username;
     bool connected;
     int nextSubscriptionId;
@@ -34,7 +34,8 @@ private:
     bool isRunning;
 
 public:
-    StompProtocol();
+    StompProtocol(); // בנאי ברירת מחדל
+    StompProtocol(const std::string& host, int port); // **בנאי מותאם אישית**
     void start();
     void stop();
     ~StompProtocol();

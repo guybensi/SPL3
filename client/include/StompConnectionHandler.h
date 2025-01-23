@@ -23,4 +23,5 @@ public:
     void close();
     bool sendFrameAscii(const std::string& frame, char delimiter);
     bool getFrameAscii(std::string& frame, char delimiter);
+    bool getFrame(Frame& frame);
 };

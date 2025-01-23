@@ -5,6 +5,7 @@
 using namespace std;
 
 int main() {
+    cout << "Welcome to the STOMP client. Please type 'login <host:port> <username> <password>' to connect." << endl;
     try {
         // יצירת אובייקט StompProtocol
         StompProtocol stompProtocol("", 0);

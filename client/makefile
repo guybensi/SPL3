@@ -1,11 +1,11 @@
-CFLAGS:=-c -Wall -Weffc++ -g -std=c++11 -Iinclude
+CFLAGS:=-c -Wall -Weffc++ -g -std=c++14 -Iinclude
 LDFLAGS:=-lboost_system -lpthread
 
 # Build the StompEMIClient
 all: StompEMIClient
 
-StompEMIClient: bin/ConnectionHandler.o bin/StompClient.o bin/StompProtocol.o bin/Frame.o bin/EmergencyEvent.o bin/Event.o
-	g++ -o bin/StompEMIClient bin/ConnectionHandler.o bin/StompClient.o bin/StompProtocol.o bin/Frame.o bin/EmergencyEvent.o bin/Event.o $(LDFLAGS)
+StompEMIClient: bin/ConnectionHandler.o bin/StompClient.o bin/StompProtocol.o bin/Frame.o bin/EmergencyEvent.o bin/Event.o bin/StompConnectionHandler.o
+	g++ -o bin/StompEMIClient bin/ConnectionHandler.o bin/StompClient.o bin/StompProtocol.o bin/Frame.o bin/EmergencyEvent.o bin/Event.o bin/StompConnectionHandler.o $(LDFLAGS)
 
 bin/ConnectionHandler.o: src/ConnectionHandler.cpp
 	g++ $(CFLAGS) -o bin/ConnectionHandler.o src/ConnectionHandler.cpp
@@ -24,6 +24,9 @@ bin/EmergencyEvent.o: src/EmergencyEvent.cpp
 
 bin/Event.o: src/event.cpp
 	g++ $(CFLAGS) -o bin/Event.o src/event.cpp
+
+bin/StompConnectionHandler.o: src/StompConnectionHandler.cpp
+	g++ $(CFLAGS) -o bin/StompConnectionHandler.o src/StompConnectionHandler.cpp
 
 .PHONY: clean
 clean:
