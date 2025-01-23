@@ -22,7 +22,9 @@ private:
     int receiptDisconnect;
     map<string, int> topicToSubscriptionId;
     map<int, bool> gotReceipt;
+    mutex gotReceiptMutex;
     map<int, std::string> receiptCallbacks;
+    mutex receiptCallbacksMutex;
     map<std::string, std::map<string, vector<EmergencyEvent>>> eventSummaryMap;
     mutex eventSummaryMapMutex;
     thread readThread;

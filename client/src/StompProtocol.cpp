@@ -8,11 +8,11 @@
 
 using namespace std;
 
-StompProtocol::StompProtocol(const string& host, int port)
-    : connectionHandler(host, port),
+StompProtocol::StompProtocol()
+    : StompConnectionHandler(),
       username(""), connected(false), nextSubscriptionId(0), nextReceiptId(0),
-      receiptDisconnect(-1),topicToSubscriptionId(), gotReceipt(), receiptCallbacks(), 
-      eventSummaryMap(), eventSummaryMapMutex(), readThread(), keyboardThread(), shouldTerminate(false),
+      receiptDisconnect(-1),topicToSubscriptionId(), gotReceipt(), gotReceiptMutex(), receiptCallbacks(), 
+      receiptCallbacksMutex (), eventSummaryMap(), eventSummaryMapMutex(), readThread(), keyboardThread(), shouldTerminate(false),
       isRunning(false){}
 
 void StompProtocol::start() {
@@ -21,17 +21,18 @@ void StompProtocol::start() {
         return;
     }
 
-    if (!connectionHandler.connect()) {
-        cerr << "Failed to connect to server." << endl;
-        return;
-    }
-
     isRunning = true;
-    cout << "Connected to server." << endl;
+    cout << "Welcome to the STOMP client. Please type 'login <host:port> <username> <password>' to connect." << endl;
 
-    readThread = thread([this]() { readLoop(); });
+    // הפעלת לולאות הקלט והפלט
     keyboardThread = thread([this]() { keyboardLoop(); });
+    readThread = thread([this]() { readLoop(); });
+
+    // המתנה לסיום הלולאות
+    keyboardThread.join();
+    readThread.join();
 }
+
 
 void StompProtocol::stop() {
     if (!isRunning) {
@@ -40,7 +41,7 @@ void StompProtocol::stop() {
     }
 
     shouldTerminate = true;
-    connectionHandler.close();
+    StompConnectionHandler.close();
 
     if (readThread.joinable()) {
         readThread.join();
@@ -129,8 +130,14 @@ Frame StompProtocol::handleLogin(const string& hostPort, const string& username,
         throw runtime_error("Invalid host:port format");
     }
 
-    if (!connectionHandler.connect()) {
-        throw runtime_error("Could not connect to server");
+    string host = hostPort.substr(0, colonPos);
+    short port = static_cast<short>(stoi(hostPort.substr(colonPos + 1)));
+
+    try {
+        // השתמש ב-setConnection של StompConnectionHandler
+        StompConnectionHandler.setConnection(host, port);
+    } catch (const std::exception& e) {
+        throw runtime_error("Could not establish connection: " + string(e.what()));
     }
 
     Frame frame;
@@ -143,6 +150,7 @@ Frame StompProtocol::handleLogin(const string& hostPort, const string& username,
     this->username = username;
     return frame;
 }
+
 
 Frame StompProtocol::handleJoin(const string& topic) {
     if (!connected) {
@@ -161,7 +169,9 @@ Frame StompProtocol::handleJoin(const string& topic) {
     frame.headers["receipt"] = to_string(nextReceiptId);
 
     topicToSubscriptionId[topic] = nextSubscriptionId;
+    lock_guard<mutex> lock(gotReceiptMutex);
     gotReceipt[nextReceiptId] = false;
+    lock_guard<mutex> lock(receiptCallbacksMutex);
     receiptCallbacks[nextReceiptId] = "Joined topic: " + topic;
 
     ++nextSubscriptionId;
@@ -184,8 +194,9 @@ Frame StompProtocol::handleExit(const string& topic) {
     frame.command = "UNSUBSCRIBE";
     frame.headers["id"] = to_string(subscriptionId);
     frame.headers["receipt"] = to_string(nextReceiptId);
-
+    lock_guard<mutex> lock(gotReceiptMutex);
     gotReceipt[nextReceiptId] = false;
+    lock_guard<mutex> lock(receiptCallbacksMutex);
     receiptCallbacks[nextReceiptId] = "Exited topic: " + topic;
     topicToSubscriptionId.erase(topic);
 
@@ -214,7 +225,9 @@ Frame StompProtocol::handleLogout() {
     frame.headers["receipt"] = to_string(nextReceiptId);
 
     receiptDisconnect = nextReceiptId;
+    lock_guard<mutex> lock(gotReceiptMutex);
     gotReceipt[nextReceiptId] = false;
+    lock_guard<mutex> lock(receiptCallbacksMutex);
     receiptCallbacks[nextReceiptId] = "Logged out.";
 
     ++nextReceiptId;
@@ -223,8 +236,8 @@ Frame StompProtocol::handleLogout() {
 
 void StompProtocol::sendFrame(const Frame& frame) {
     string frameStr = frame.toString();
-    if (!connectionHandler.sendFrameAscii(frameStr, '\0')) {
-        connectionHandler.close();
+    if (!StompConnectionHandler.sendFrameAscii(frameStr, '\0')) {
+        StompConnectionHandler.close();
         cerr << "Failed to send frame: " << frame.command << endl;
     }
 }
@@ -260,7 +273,7 @@ bool StompProtocol::isReceiptValid(const Frame& frame, int receiptId) {
 void StompProtocol::readLoop() {
     while (!shouldTerminate) {
         Frame response;
-        if (connectionHandler.getFrame(response)) {
+        if (StompConnectionHandler.getFrame(response)) {
             handleFrame(response);
         } else {
             cerr << "Failed to receive response from server." << endl;
@@ -274,7 +287,9 @@ void StompProtocol::handleFrame(const Frame& response) {
         cout << "Login successful." << endl;
     } else if (response.command == "RECEIPT") {
         int receiptId = stoi(response.headers.at("receipt-id"));
+        lock_guard<mutex> lock(gotReceiptMutex);
         if (gotReceipt[receiptId]) {
+            lock_guard<mutex> lock(receiptCallbacksMutex);
             cout << receiptCallbacks[receiptId] << endl;
             gotReceipt.erase(receiptId);
             receiptCallbacks.erase(receiptId);
