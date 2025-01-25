@@ -70,7 +70,7 @@ public class ConnectFrame extends Frame {
         if (headers.containsKey("login") && headers.containsKey("passcode")) {
             String userName = (String)headers.get("login");
             String password = (String)headers.get("passcode");
-           if (connections.checkPasswordToUser(userName, password)){//
+           if (!connections.checkPasswordToUser(userName, password)){//
               throw new IOException("Incorrect passcode:The passcode does not match the username" + userName);
            } else if (connections.checkIfUserLogedIn(userName, password)){
               throw new IOException("Multiple login:The user"+ userName+ "already logged in");

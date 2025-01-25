@@ -44,8 +44,8 @@ public class Reactor<T> implements Server<T> {
         try (Selector selector = Selector.open();
                 ServerSocketChannel serverSock = ServerSocketChannel.open()) {
 
+            this.connections = new ConnectionsImpl<>();///Our update
             this.selector = selector; //just to be able to close
-            this.connections = new ConnectionsImpl();///Our update
             serverSock.bind(new InetSocketAddress(port));
             serverSock.configureBlocking(false);
             serverSock.register(selector, SelectionKey.OP_ACCEPT);
@@ -103,10 +103,10 @@ public class Reactor<T> implements Server<T> {
                 protocolFactory.get(),
                 clientChan,
                 this);
-        this.pool.submit(handler, () -> { ///Our update
+        this.pool.submit(handler, () -> { ///Our update 
             handler.getProtocol().start(this.connectionIdCounter, this.connections);
-            this.connections.addConnectionHandler(handler, this.connectionIdCounter);
-        });
+            this.connections.addConnection(this.connectionIdCounter,handler);
+        }); //To maintain the invariant that at any given moment, only one thread handles a single connection handler and its associated connection ID.
         ++this.connectionIdCounter;///Our update
         clientChan.register(selector, SelectionKey.OP_READ, handler);
     }
